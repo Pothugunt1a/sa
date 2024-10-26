@@ -110,7 +110,7 @@ describe('Payment API', () => {
       stripe_payment_intent_id: 'test_intent_id'
     });
 
-    console.log('Created payment:', payment); // Add this line for debugging
+    console.log('Created payment:', payment);
 
     const GET_PAYMENT = gql`
       query GetPayment($id: ID!) {
@@ -128,9 +128,10 @@ describe('Payment API', () => {
     const res = await server.executeOperation({
       query: GET_PAYMENT,
       variables: { id: payment.payment_id.toString() },
+      variables: { id: payment.payment_id },
     });
 
-    console.log('Query result:', res); // Add this line for debugging
+    console.log('Query result:', res);
 
     expect(res.data.getPayment).not.toBeNull();
     expect(res.data.getPayment).toMatchObject({

@@ -10,14 +10,14 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 async function startServer() {
   const app = express();
   
+  // Make sure this line is present and comes before your routes
+  app.use(express.json());
+
   // CORS configuration
   app.use(cors({
     origin: 'https://shashikala-foundation.netlify.app',
     credentials: true
   }));
-
-  // Body parsing middleware
-  app.use(express.json());
 
   await connectDB();
 
@@ -36,13 +36,20 @@ async function startServer() {
   // Add a route for creating payment intents
   app.post('/create-payment-intent', async (req, res) => {
     try {
-      console.log('Received request body:', req.body); // Add this line for debugging
+      console.log('Received request:', req.body);
+      
+      if (!req.body || !req.body.amount || !req.body.email) {
+        return res.status(400).json({ error: 'Missing required fields in request body' });
+      }
+
       const { amount, email } = req.body;
+
       const paymentIntent = await stripe.paymentIntents.create({
         amount,
         currency: 'usd',
         receipt_email: email,
       });
+
       res.json({ clientSecret: paymentIntent.client_secret });
     } catch (error) {
       console.error('Error creating payment intent:', error);
