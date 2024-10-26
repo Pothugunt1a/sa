@@ -10,11 +10,14 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 async function startServer() {
   const app = express();
   
-  // Update CORS configuration
+  // CORS configuration
   app.use(cors({
     origin: 'https://shashikala-foundation.netlify.app',
     credentials: true
   }));
+
+  // Body parsing middleware
+  app.use(express.json());
 
   await connectDB();
 
@@ -33,6 +36,7 @@ async function startServer() {
   // Add a route for creating payment intents
   app.post('/create-payment-intent', async (req, res) => {
     try {
+      console.log('Received request body:', req.body); // Add this line for debugging
       const { amount, email } = req.body;
       const paymentIntent = await stripe.paymentIntents.create({
         amount,

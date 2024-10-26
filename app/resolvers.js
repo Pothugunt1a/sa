@@ -22,6 +22,8 @@ const resolvers = {
       const payment = await Payment.findOne({ payment_id: id });
       if (!payment) {
         console.log(`Payment with id ${id} not found`);
+      } else {
+        console.log('Found payment:', payment); // Add this line for debugging
       }
       return payment;
     },
