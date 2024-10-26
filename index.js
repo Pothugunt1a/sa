@@ -6,7 +6,14 @@ const resolvers = require('./app/resolvers');
 const connectDB = require('./db');
 const cors = require('cors');
 //const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const Stripe = require('stripe');
+
+// Check if the STRIPE_SECRET_KEY is set
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error('STRIPE_SECRET_KEY is not set in the environment variables');
+}
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 async function startServer() {
   const app = express();
