@@ -5,6 +5,7 @@ const typeDefs = require('./app/schema');
 const resolvers = require('./app/resolvers');
 const connectDB = require('./db');
 const cors = require('cors');
+//const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 async function startServer() {
