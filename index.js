@@ -5,10 +5,8 @@ const typeDefs = require('./app/schema');
 const resolvers = require('./app/resolvers');
 const connectDB = require('./db');
 const cors = require('cors');
-//const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const Stripe = require('stripe');
 
-// Check if the STRIPE_SECRET_KEY is set
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('STRIPE_SECRET_KEY is not set in the environment variables');
 }
@@ -18,13 +16,17 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 async function startServer() {
   const app = express();
   
-  // Make sure this line is present and comes before your routes
   app.use(express.json());
 
-  // CORS configuration
   app.use(cors({
-    origin: 'https://shashikala-foundation.netlify.app',
-    credentials: true
+    origin: [
+      'https://shashikala-foundation.netlify.app',
+      'http://localhost:3000',
+      'https://studio.apollographql.com'
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
   }));
 
   await connectDB();
@@ -36,17 +38,28 @@ async function startServer() {
       req,
       stripe
     }),
+    introspection: true,
+    playground: true
   });
 
   await server.start();
-  server.applyMiddleware({ app });
+  
+  server.applyMiddleware({ 
+    app,
+    path: '/graphql',
+    cors: false
+  });
 
-  // Add a route for creating payment intents
+  app.get('/health', (req, res) => {
+    res.json({ status: 'ok' });
+  });
+
   app.post('/create-payment-intent', async (req, res) => {
     try {
       console.log('Received request:', req.body);
       
       if (!req.body || !req.body.amount || !req.body.email) {
+        console.log('Missing required fields:', req.body);
         return res.status(400).json({ error: 'Missing required fields in request body' });
       }
 
@@ -58,6 +71,7 @@ async function startServer() {
         receipt_email: email,
       });
 
+      console.log('Created payment intent:', paymentIntent.id);
       res.json({ clientSecret: paymentIntent.client_secret });
     } catch (error) {
       console.error('Error creating payment intent:', error);
@@ -67,7 +81,10 @@ async function startServer() {
 
   const PORT = process.env.PORT || 4000;
   app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}${server.graphqlPath}`);
+    console.log(`
+      🚀 Server ready at http://localhost:${PORT}${server.graphqlPath}
+      ⭐️ Health check at http://localhost:${PORT}/health
+    `);
   });
 }
 
