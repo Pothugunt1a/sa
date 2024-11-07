@@ -6,6 +6,7 @@ const resolvers = require('./app/resolvers');
 const connectDB = require('./db');
 const cors = require('cors');
 const Stripe = require('stripe');
+const Payment = require('./models/Payment');
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('STRIPE_SECRET_KEY is not set in the environment variables');
@@ -56,25 +57,96 @@ async function startServer() {
 
   app.post('/create-payment-intent', async (req, res) => {
     try {
-      console.log('Received request:', req.body);
+      console.log('Received payment request:', req.body);
       
-      if (!req.body || !req.body.amount || !req.body.email) {
-        console.log('Missing required fields:', req.body);
-        return res.status(400).json({ error: 'Missing required fields in request body' });
-      }
+      const { 
+        amount, 
+        email, 
+        fullName, 
+        address1, 
+        address2, 
+        city, 
+        state,
+        isEvent,
+        eventDetails 
+      } = req.body;
 
-      const { amount, email } = req.body;
-
+      // Create Stripe payment intent
       const paymentIntent = await stripe.paymentIntents.create({
         amount,
         currency: 'usd',
         receipt_email: email,
+        metadata: {
+          full_name: fullName,
+          address1,
+          address2,
+          city,
+          state,
+          is_event: isEvent ? 'true' : 'false',
+          event_name: eventDetails?.eventName,
+          event_date: eventDetails?.eventDate,
+          event_venue: eventDetails?.eventVenue,
+          event_time: eventDetails?.eventTime
+        }
       });
 
-      console.log('Created payment intent:', paymentIntent.id);
-      res.json({ clientSecret: paymentIntent.client_secret });
+      // Create payment record in MongoDB
+      const payment = new Payment({
+        stripe_payment_intent_id: paymentIntent.id,
+        order_id: `ORDER-${Date.now()}`,
+        amount: amount / 100, // Convert cents to dollars
+        payment_method: 'card',
+        payment_status: 'pending',
+        email,
+        full_name: fullName,
+        address1,
+        address2,
+        city,
+        state,
+        transaction_id: paymentIntent.id,
+        is_donation: !isEvent,
+        event_name: eventDetails?.eventName,
+        event_date: eventDetails?.eventDate,
+        event_venue: eventDetails?.eventVenue,
+        event_time: eventDetails?.eventTime
+      });
+
+      await payment.save();
+      console.log('Payment record created in MongoDB:', payment);
+
+      res.json({ 
+        clientSecret: paymentIntent.client_secret,
+        paymentId: payment._id
+      });
     } catch (error) {
-      console.error('Error creating payment intent:', error);
+      console.error('Error processing payment:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Add endpoint to update payment status after successful confirmation
+  app.post('/payment-confirmation', async (req, res) => {
+    try {
+      const { paymentIntentId } = req.body;
+
+      // Update payment status in MongoDB
+      const payment = await Payment.findOneAndUpdate(
+        { stripe_payment_intent_id: paymentIntentId },
+        { 
+          payment_status: 'completed',
+          payment_date: new Date()
+        },
+        { new: true }
+      );
+
+      if (!payment) {
+        throw new Error('Payment record not found');
+      }
+
+      console.log('Payment status updated:', payment);
+      res.json({ success: true, payment });
+    } catch (error) {
+      console.error('Error updating payment status:', error);
       res.status(500).json({ error: error.message });
     }
   });
