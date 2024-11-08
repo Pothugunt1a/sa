@@ -89,16 +89,30 @@ const resolvers = {
     },
     createPayment: async (_, { input }, { stripe }) => {
       try {
-        const { order_id, amount, payment_method, email, fullName, address1, address2, city, state, isEvent, eventDetails } = input;
+        const { 
+          amount, 
+          email, 
+          fullName, 
+          address1, 
+          address2, 
+          city, 
+          state, 
+          isEvent,
+          eventDetails 
+        } = input;
 
-        // Create payment intent in Stripe
+        // Validate required fields
+        if (!fullName || !address1 || !city || !state) {
+          throw new Error('Missing required fields: fullName, address1, city, and state are required');
+        }
+
+        // Create Stripe payment intent
         const paymentIntent = await stripe.paymentIntents.create({
-          amount: Math.round(amount * 100),
+          amount: Math.round(amount * 100), // Convert to cents
           currency: 'usd',
-          payment_method_types: [payment_method],
+          payment_method_types: ['card'],
           receipt_email: email,
           metadata: {
-            order_id,
             full_name: fullName,
             address1,
             address2,
@@ -112,37 +126,51 @@ const resolvers = {
           }
         });
 
-        // Store payment data in MongoDB
+        // Create payment record in MongoDB
         const payment = new Payment({
-          order_id,
-          amount,
-          payment_method,
-          payment_status: 'pending',
-          transaction_id: paymentIntent.id,
           stripe_payment_intent_id: paymentIntent.id,
+          order_id: `ORDER-${Date.now()}`,
+          amount,
+          currency: 'usd',
+          payment_method: 'card',
+          payment_method_types: ['card'],
+          payment_status: 'pending',
           email,
+          // Ensure these required fields are set
           full_name: fullName,
           address1,
           address2,
           city,
           state,
+          transaction_id: paymentIntent.id,
           is_donation: !isEvent,
           event_name: eventDetails?.eventName,
           event_date: eventDetails?.eventDate,
           event_venue: eventDetails?.eventVenue,
-          event_time: eventDetails?.eventTime
+          event_time: eventDetails?.eventTime,
+          stripe_data: {
+            client_secret: paymentIntent.client_secret,
+            description: paymentIntent.description,
+            receipt_email: email,
+            metadata: paymentIntent.metadata
+          }
         });
 
         await payment.save();
         console.log('Payment saved to MongoDB:', payment);
 
         return {
-          ...payment.toObject(),
-          clientSecret: paymentIntent.client_secret
+          success: true,
+          message: 'Payment intent created successfully',
+          payment: payment
         };
       } catch (error) {
         console.error('Error creating payment:', error);
-        throw new Error(`Failed to create payment: ${error.message}`);
+        return {
+          success: false,
+          message: error.message,
+          payment: null
+        };
       }
     },
     updatePaymentStatus: async (_, { id, status }) => {
