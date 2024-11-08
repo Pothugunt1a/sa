@@ -126,28 +126,11 @@ const typeDefs = gql`
     arts: [Art]
   }
 
-  scalar JSON
-
-  type StripeData {
-    client_secret: String
-    description: String
-    receipt_email: String
-    receipt_url: String
-    refunded: Boolean
-    refund_status: String
-    refund_reason: String
-    last_payment_error: String
-    payment_method_details: JSON
-    metadata: JSON
-  }
-
   type Payment {
     _id: ID!
     order_id: String!
     amount: Float!
-    currency: String
     payment_method: String!
-    payment_method_types: [String]
     payment_status: String!
     email: String!
     full_name: String!
@@ -165,7 +148,6 @@ const typeDefs = gql`
     stripe_payment_intent_id: String!
     created_at: String!
     updated_at: String!
-    stripe_data: StripeData
   }
 
   type PaymentResponse {
