@@ -127,17 +127,28 @@ const typeDefs = gql`
   }
 
   type Payment {
-    _id: ID!
-    payment_id: ID!
-    order_id: String!
-    amount: Float!
-    payment_method: String!
-    payment_status: String!
-    transaction_id: String
-    payment_date: String
-    email: String!
-    stripe_payment_intent_id: String!
-  }
+  _id: ID!
+  order_id: String!
+  amount: Float!
+  payment_method: String!
+  payment_status: String!
+  email: String!
+  full_name: String!
+  address1: String!
+  address2: String
+  city: String!
+  state: String!
+  transaction_id: String!
+  is_donation: Boolean!  // Changed from isDonation to is_donation to match MongoDB model
+  event_name: String
+  event_date: String
+  event_venue: String
+  event_time: String
+  payment_date: String
+  stripe_payment_intent_id: String!
+  created_at: String!
+  updated_at: String!
+}
 
   type PaymentIntent {
     clientSecret: String!
