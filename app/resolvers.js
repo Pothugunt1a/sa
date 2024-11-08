@@ -101,9 +101,26 @@ const resolvers = {
           eventDetails 
         } = input;
 
-        // Validate required fields
-        if (!fullName || !address1 || !city || !state) {
-          throw new Error('Missing required fields: fullName, address1, city, and state are required');
+        // Add detailed validation logging
+        console.log('Received input:', {
+          amount,
+          email,
+          fullName,
+          address1,
+          city,
+          state,
+          isEvent
+        });
+
+        // Validate required fields with specific error messages
+        const missingFields = [];
+        if (!fullName) missingFields.push('fullName');
+        if (!address1) missingFields.push('address1');
+        if (!city) missingFields.push('city');
+        if (!state) missingFields.push('state');
+
+        if (missingFields.length > 0) {
+          throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
         }
 
         // Create Stripe payment intent
@@ -136,12 +153,11 @@ const resolvers = {
           payment_method_types: ['card'],
           payment_status: 'pending',
           email,
-          // Ensure these required fields are set
-          full_name: fullName,
-          address1,
-          address2,
-          city,
-          state,
+          full_name: fullName,         // Match the schema field name
+          address1: address1,          // Match the schema field name
+          address2: address2 || '',    // Optional field
+          city: city,                  // Match the schema field name
+          state: state,                // Match the schema field name
           transaction_id: paymentIntent.id,
           is_donation: !isEvent,
           event_name: eventDetails?.eventName,
@@ -156,8 +172,11 @@ const resolvers = {
           }
         });
 
+        // Log the payment object before saving
+        console.log('Payment object before save:', payment);
+
         await payment.save();
-        console.log('Payment saved to MongoDB:', payment);
+        console.log('Payment saved successfully:', payment);
 
         return {
           success: true,
@@ -165,10 +184,15 @@ const resolvers = {
           payment: payment
         };
       } catch (error) {
-        console.error('Error creating payment:', error);
+        console.error('Detailed error:', {
+          message: error.message,
+          name: error.name,
+          stack: error.stack
+        });
+        
         return {
           success: false,
-          message: error.message,
+          message: `Payment creation failed: ${error.message}`,
           payment: null
         };
       }
