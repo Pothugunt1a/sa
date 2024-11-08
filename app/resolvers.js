@@ -88,27 +88,85 @@ const resolvers = {
       return true;
     },
     createPayment: async (_, { input }, { stripe }) => {
-      const { order_id, amount, payment_method, email } = input;
+      try {
+        const { 
+          amount, 
+          email, 
+          fullName, 
+          address1, 
+          address2, 
+          city, 
+          state, 
+          isEvent,
+          eventDetails 
+        } = input;
 
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(amount * 100),
-        currency: 'usd',
-        payment_method_types: [payment_method],
-        receipt_email: email,
-      });
+        // Create Stripe payment intent
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: Math.round(amount * 100), // Convert to cents
+          currency: 'usd',
+          payment_method_types: ['card'],
+          receipt_email: email,
+          metadata: {
+            full_name: fullName,
+            address1,
+            address2,
+            city,
+            state,
+            is_event: isEvent ? 'true' : 'false',
+            event_name: eventDetails?.eventName,
+            event_date: eventDetails?.eventDate,
+            event_venue: eventDetails?.eventVenue,
+            event_time: eventDetails?.eventTime
+          }
+        });
 
-      const payment = new Payment({
-        order_id,
-        amount,
-        payment_method,
-        payment_status: 'pending',
-        transaction_id: paymentIntent.id,
-        stripe_payment_intent_id: paymentIntent.id, // This line is important
-        email,
-      });
+        // Store payment data in MongoDB
+        const payment = new Payment({
+          stripe_payment_intent_id: paymentIntent.id,
+          order_id: `ORDER-${Date.now()}`,
+          amount: amount,
+          currency: paymentIntent.currency,
+          payment_method: 'card',
+          payment_method_types: paymentIntent.payment_method_types,
+          payment_status: 'pending',
+          email,
+          full_name: fullName,
+          address1,
+          address2,
+          city,
+          state,
+          transaction_id: paymentIntent.id,
+          is_donation: !isEvent,
+          event_name: eventDetails?.eventName,
+          event_date: eventDetails?.eventDate,
+          event_venue: eventDetails?.eventVenue,
+          event_time: eventDetails?.eventTime,
+          stripe_data: {
+            client_secret: paymentIntent.client_secret,
+            description: paymentIntent.description,
+            receipt_email: paymentIntent.receipt_email,
+            metadata: paymentIntent.metadata,
+            payment_method_details: paymentIntent.payment_method_details
+          }
+        });
 
-      await payment.save();
-      return payment;
+        await payment.save();
+        console.log('Payment saved to MongoDB:', payment);
+
+        return {
+          success: true,
+          message: 'Payment intent created successfully',
+          payment: payment
+        };
+      } catch (error) {
+        console.error('Error creating payment:', error);
+        return {
+          success: false,
+          message: error.message,
+          payment: null
+        };
+      }
     },
     updatePaymentStatus: async (_, { id, status }) => {
       const updatedPayment = await Payment.findOneAndUpdate(
@@ -144,31 +202,43 @@ const resolvers = {
         const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
         
         if (paymentIntent.status === 'succeeded') {
-          const payment = new Payment({
-            order_id: paymentIntent.id,
-            amount: paymentIntent.amount / 100, // Convert cents to dollars
-            payment_method: paymentIntent.payment_method_types[0],
-            payment_status: 'completed',
-            transaction_id: paymentIntent.id,
-            stripe_payment_intent_id: paymentIntent.id,
-            email: paymentIntent.receipt_email,
-          });
-  
-          await payment.save();
-          return payment;
-        } else if (paymentIntent.status === 'requires_payment_method') {
-          throw new Error('Payment requires a payment method. Please try again with a valid payment method.');
-        } else if (paymentIntent.status === 'requires_confirmation') {
-          throw new Error('Payment requires confirmation. Please confirm the payment on the client side.');
+          // Update payment record in MongoDB with all Stripe data
+          const payment = await Payment.findOneAndUpdate(
+            { stripe_payment_intent_id: paymentIntentId },
+            {
+              payment_status: 'completed',
+              payment_date: new Date(),
+              stripe_data: {
+                receipt_url: paymentIntent.charges.data[0]?.receipt_url,
+                payment_method_details: paymentIntent.charges.data[0]?.payment_method_details,
+                metadata: paymentIntent.metadata,
+                refunded: paymentIntent.charges.data[0]?.refunded,
+                refund_status: paymentIntent.charges.data[0]?.refund_status,
+                last_payment_error: paymentIntent.last_payment_error
+              }
+            },
+            { new: true }
+          );
+
+          if (!payment) {
+            throw new Error('Payment record not found in MongoDB');
+          }
+
+          return {
+            success: true,
+            message: 'Payment confirmed successfully',
+            payment
+          };
         } else {
           throw new Error(`Payment is in ${paymentIntent.status} state. Unable to confirm.`);
         }
       } catch (error) {
         console.error('Error confirming payment:', error);
-        if (error.type === 'StripeInvalidRequestError') {
-          throw new Error(`Stripe error: ${error.message}`);
-        }
-        throw new Error(`Failed to confirm payment: ${error.message}`);
+        return {
+          success: false,
+          message: error.message,
+          payment: null
+        };
       }
     },
     // Add more mutations
