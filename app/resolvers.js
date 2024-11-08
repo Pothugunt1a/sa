@@ -5,6 +5,7 @@ const Art = require('../models/Art');
 const UserRole = require('../models/UserRole');
 const Payment = require('../models/Payment');
 // Import other models as needed
+
 const resolvers = {
   Query: {
     users: async () => await User.find(),
@@ -18,13 +19,20 @@ const resolvers = {
     userRoles: async () => await UserRole.find(),
     userRole: async (_, { userId, roleId }) => await UserRole.findOne({ user_id: userId, role_id: roleId }),
     getPayment: async (_, { id }) => {
-      const payment = await Payment.findOne({ payment_id: id });
-      if (!payment) {
-        console.log(`Payment with id ${id} not found`);
-      } else {
-        console.log('Found payment:', payment); // Add this line for debugging
+      try {
+        const payment = await Payment.findById(id);
+        
+        if (!payment) {
+          console.log(`Payment with id ${id} not found`);
+          return null;
+        }
+        
+        console.log('Found payment:', payment);
+        return payment;
+      } catch (error) {
+        console.error('Error fetching payment:', error);
+        throw new Error(`Error fetching payment: ${error.message}`);
       }
-      return payment;
     },
     // Add more queries
   },
@@ -120,14 +128,14 @@ const resolvers = {
           }
         });
 
-        // Store payment data in MongoDB
+        // Create payment record in MongoDB
         const payment = new Payment({
           stripe_payment_intent_id: paymentIntent.id,
           order_id: `ORDER-${Date.now()}`,
-          amount: amount,
-          currency: paymentIntent.currency,
+          amount,
+          currency: 'usd',
           payment_method: 'card',
-          payment_method_types: paymentIntent.payment_method_types,
+          payment_method_types: ['card'],
           payment_status: 'pending',
           email,
           full_name: fullName,
@@ -144,7 +152,7 @@ const resolvers = {
           stripe_data: {
             client_secret: paymentIntent.client_secret,
             description: paymentIntent.description,
-            receipt_email: paymentIntent.receipt_email,
+            receipt_email: email,
             metadata: paymentIntent.metadata,
             payment_method_details: paymentIntent.payment_method_details
           }
