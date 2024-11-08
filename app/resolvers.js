@@ -89,47 +89,16 @@ const resolvers = {
     },
     createPayment: async (_, { input }, { stripe }) => {
       try {
-        const { 
-          amount, 
-          email, 
-          fullName, 
-          address1, 
-          address2, 
-          city, 
-          state, 
-          isEvent,
-          eventDetails 
-        } = input;
+        const { order_id, amount, payment_method, email, fullName, address1, address2, city, state, isEvent, eventDetails } = input;
 
-        // Add detailed validation logging
-        console.log('Received input:', {
-          amount,
-          email,
-          fullName,
-          address1,
-          city,
-          state,
-          isEvent
-        });
-
-        // Validate required fields with specific error messages
-        const missingFields = [];
-        if (!fullName) missingFields.push('fullName');
-        if (!address1) missingFields.push('address1');
-        if (!city) missingFields.push('city');
-        if (!state) missingFields.push('state');
-
-        if (missingFields.length > 0) {
-          throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
-        }
-
-        // Create Stripe payment intent
+        // Create payment intent in Stripe
         const paymentIntent = await stripe.paymentIntents.create({
-          amount: Math.round(amount * 100), // Convert to cents
+          amount: Math.round(amount * 100),
           currency: 'usd',
-          payment_method_types: ['card'],
+          payment_method_types: [payment_method],
           receipt_email: email,
           metadata: {
+            order_id,
             full_name: fullName,
             address1,
             address2,
@@ -143,58 +112,37 @@ const resolvers = {
           }
         });
 
-        // Create payment record in MongoDB
+        // Store payment data in MongoDB
         const payment = new Payment({
-          stripe_payment_intent_id: paymentIntent.id,
-          order_id: `ORDER-${Date.now()}`,
+          order_id,
           amount,
-          currency: 'usd',
-          payment_method: 'card',
-          payment_method_types: ['card'],
+          payment_method,
           payment_status: 'pending',
-          email,
-          full_name: fullName,         // Match the schema field name
-          address1: address1,          // Match the schema field name
-          address2: address2 || '',    // Optional field
-          city: city,                  // Match the schema field name
-          state: state,                // Match the schema field name
           transaction_id: paymentIntent.id,
+          stripe_payment_intent_id: paymentIntent.id,
+          email,
+          full_name: fullName,
+          address1,
+          address2,
+          city,
+          state,
           is_donation: !isEvent,
           event_name: eventDetails?.eventName,
           event_date: eventDetails?.eventDate,
           event_venue: eventDetails?.eventVenue,
-          event_time: eventDetails?.eventTime,
-          stripe_data: {
-            client_secret: paymentIntent.client_secret,
-            description: paymentIntent.description,
-            receipt_email: email,
-            metadata: paymentIntent.metadata
-          }
+          event_time: eventDetails?.eventTime
         });
-
-        // Log the payment object before saving
-        console.log('Payment object before save:', payment);
 
         await payment.save();
-        console.log('Payment saved successfully:', payment);
+        console.log('Payment saved to MongoDB:', payment);
 
         return {
-          success: true,
-          message: 'Payment intent created successfully',
-          payment: payment
+          ...payment.toObject(),
+          clientSecret: paymentIntent.client_secret
         };
       } catch (error) {
-        console.error('Detailed error:', {
-          message: error.message,
-          name: error.name,
-          stack: error.stack
-        });
-        
-        return {
-          success: false,
-          message: `Payment creation failed: ${error.message}`,
-          payment: null
-        };
+        console.error('Error creating payment:', error);
+        throw new Error(`Failed to create payment: ${error.message}`);
       }
     },
     updatePaymentStatus: async (_, { id, status }) => {
