@@ -300,7 +300,6 @@ const typeDefs = gql`
     isEvent: Boolean!
     eventDetails: EventDetailsInput
   }
-
   input EventDetailsInput {
     eventName: String
     eventDate: String
