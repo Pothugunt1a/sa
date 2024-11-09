@@ -18,29 +18,14 @@ const resolvers = {
     art: async (_, { id }) => await Art.findOne({ art_id: id }),
     userRoles: async () => await UserRole.find(),
     userRole: async (_, { userId, roleId }) => await UserRole.findOne({ user_id: userId, role_id: roleId }),
-    getAllPayments: async () => {
-      try {
-        console.log('Fetching all payments...');
-        const payments = await Payment.find({}).sort({ created_at: -1 });
-        console.log(`Found ${payments.length} payments`);
-        return payments || []; // Return empty array if no payments found
-      } catch (error) {
-        console.error('Error in getAllPayments:', error);
-        throw new Error(`Failed to fetch payments: ${error.message}`);
-      }
-    },
     getPayment: async (_, { id }) => {
-      try {
-        const payment = await Payment.findById(id);
-        if (!payment) {
-          console.log(`Payment with id ${id} not found`);
-          return null;
-        }
-        return payment;
-      } catch (error) {
-        console.error('Error in getPayment:', error);
-        throw new Error(`Failed to fetch payment: ${error.message}`);
+      const payment = await Payment.findOne({ payment_id: id });
+      if (!payment) {
+        console.log(`Payment with id ${id} not found`);
+      } else {
+        console.log('Found payment:', payment); // Add this line for debugging
       }
+      return payment;
     },
     // Add more queries
   },
@@ -104,38 +89,16 @@ const resolvers = {
     },
     createPayment: async (_, { input }, { stripe }) => {
       try {
-        console.log('Payment input received:', JSON.stringify(input, null, 2));
+        const { order_id, amount, payment_method, email, fullName, address1, address2, city, state, isEvent, eventDetails } = input;
 
-        const { 
-          amount, 
-          email, 
-          fullName, 
-          address1, 
-          address2, 
-          city, 
-          state, 
-          isEvent,
-          eventDetails 
-        } = input;
-
-        // Validate required fields
-        if (!fullName || !address1 || !city || !state) {
-          console.error('Missing required fields:', {
-            fullName: !!fullName,
-            address1: !!address1,
-            city: !!city,
-            state: !!state
-          });
-          throw new Error('Missing required fields: fullName, address1, city, and state are required');
-        }
-
-        // Create Stripe payment intent
+        // Create payment intent in Stripe
         const paymentIntent = await stripe.paymentIntents.create({
           amount: Math.round(amount * 100),
           currency: 'usd',
-          payment_method_types: ['card'],
+          payment_method_types: [payment_method],
           receipt_email: email,
           metadata: {
+            order_id,
             full_name: fullName,
             address1,
             address2,
@@ -149,80 +112,53 @@ const resolvers = {
           }
         });
 
-        // Create payment record in MongoDB
+        // Store payment data in MongoDB
         const payment = new Payment({
-          stripe_payment_intent_id: paymentIntent.id,
-          order_id: `ORDER-${Date.now()}`,
+          order_id,
           amount,
-          payment_method: 'card',
+          payment_method,
           payment_status: 'pending',
+          transaction_id: paymentIntent.id,
+          stripe_payment_intent_id: paymentIntent.id,
           email,
           full_name: fullName,
           address1,
           address2,
           city,
           state,
-          transaction_id: paymentIntent.id,
           is_donation: !isEvent,
           event_name: eventDetails?.eventName,
           event_date: eventDetails?.eventDate,
           event_venue: eventDetails?.eventVenue,
-          event_time: eventDetails?.eventTime,
-          stripe_data: {
-            client_secret: paymentIntent.client_secret,
-            receipt_email: email
-          }
+          event_time: eventDetails?.eventTime
         });
 
         await payment.save();
-        console.log('Payment saved:', payment);
+        console.log('Payment saved to MongoDB:', payment);
 
         return {
-          success: true,
-          message: 'Payment created successfully',
-          payment
+          ...payment.toObject(),
+          clientSecret: paymentIntent.client_secret
         };
       } catch (error) {
         console.error('Error creating payment:', error);
-        return {
-          success: false,
-          message: error.message,
-          payment: null
-        };
+        throw new Error(`Failed to create payment: ${error.message}`);
       }
     },
-    updatePaymentStatus: async (_, { paymentId, status }) => {
-      try {
-        const payment = await Payment.findByIdAndUpdate(
-          paymentId,
-          { 
-            payment_status: status,
-            ...(status === 'completed' ? { payment_date: new Date() } : {})
-          },
-          { new: true }
-        );
-
-        if (!payment) {
-          return {
-            success: false,
-            message: 'Payment not found',
-            payment: null
-          };
-        }
-
-        return {
-          success: true,
-          message: 'Payment status updated successfully',
-          payment
-        };
-      } catch (error) {
-        console.error('Error updating payment status:', error);
-        return {
-          success: false,
-          message: error.message,
-          payment: null
-        };
+    updatePaymentStatus: async (_, { id, status }) => {
+      const updatedPayment = await Payment.findOneAndUpdate(
+        { payment_id: id },
+        { payment_status: status },
+        { new: true }
+      );
+      if (!updatedPayment) {
+        throw new Error(`Payment with id ${id} not found`);
       }
+      return {
+        order_id: updatedPayment.order_id,
+        payment_status: updatedPayment.payment_status,
+        stripe_payment_intent_id: updatedPayment.stripe_payment_intent_id
+      };
     },
     createPaymentIntent: async (_, { amount, email }, { stripe }) => {
       try {
