@@ -63,7 +63,17 @@ const PaymentSchema = new mongoose.Schema({
   timestamps: {
     createdAt: 'created_at',
     updatedAt: 'updated_at'
+  },
+  _id: true
+});
+
+PaymentSchema.index({ stripe_payment_intent_id: 1 }, { unique: true });
+
+PaymentSchema.pre('save', function(next) {
+  if (this.payment_id) {
+    delete this.payment_id;
   }
+  next();
 });
 
 module.exports = mongoose.model('Payment', PaymentSchema);
