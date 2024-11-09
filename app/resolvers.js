@@ -104,6 +104,8 @@ const resolvers = {
     },
     createPayment: async (_, { input }, { stripe }) => {
       try {
+        console.log('Payment input received:', JSON.stringify(input, null, 2));
+
         const { 
           amount, 
           email, 
@@ -115,6 +117,17 @@ const resolvers = {
           isEvent,
           eventDetails 
         } = input;
+
+        // Validate required fields
+        if (!fullName || !address1 || !city || !state) {
+          console.error('Missing required fields:', {
+            fullName: !!fullName,
+            address1: !!address1,
+            city: !!city,
+            state: !!state
+          });
+          throw new Error('Missing required fields: fullName, address1, city, and state are required');
+        }
 
         // Create Stripe payment intent
         const paymentIntent = await stripe.paymentIntents.create({
