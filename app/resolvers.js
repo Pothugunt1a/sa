@@ -5,6 +5,7 @@ const Art = require('../models/Art');
 const UserRole = require('../models/UserRole');
 const Payment = require('../models/Payment');
 // Import other models as needed
+
 const resolvers = {
   Query: {
     users: async () => await User.find(),
