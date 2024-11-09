@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-
 const PaymentSchema = new mongoose.Schema({
   stripe_payment_intent_id: {
     type: String,
