@@ -21,31 +21,22 @@ const PaymentSchema = new mongoose.Schema({
   payment_status: {
     type: String,
     required: true,
-    enum: ['pending', 'completed', 'failed', 'refunded']
+    enum: ['pending', 'completed', 'failed']
   },
   email: {
     type: String,
     required: true
   },
-  full_name: {
-    type: String,
-    required: true
-  },
-  address1: {
-    type: String,
-    required: true
-  },
+  full_name: String,
+  address1: String,
   address2: String,
-  city: {
-    type: String,
-    required: true
-  },
-  state: {
-    type: String,
-    required: true
-  },
+  city: String,
+  state: String,
   transaction_id: String,
-  payment_date: Date,
+  payment_date: {
+    type: Date,
+    default: Date.now
+  },
   is_donation: {
     type: Boolean,
     default: false
@@ -53,27 +44,7 @@ const PaymentSchema = new mongoose.Schema({
   event_name: String,
   event_date: String,
   event_venue: String,
-  event_time: String,
-  stripe_data: {
-    client_secret: String,
-    receipt_email: String,
-    receipt_url: String
-  }
-}, {
-  timestamps: {
-    createdAt: 'created_at',
-    updatedAt: 'updated_at'
-  },
-  _id: true
-});
-
-PaymentSchema.index({ stripe_payment_intent_id: 1 }, { unique: true });
-
-PaymentSchema.pre('save', function(next) {
-  if (this.payment_id) {
-    delete this.payment_id;
-  }
-  next();
+  event_time: String
 });
 
 module.exports = mongoose.model('Payment', PaymentSchema);
