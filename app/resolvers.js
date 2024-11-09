@@ -132,7 +132,6 @@ const resolvers = {
           event_venue: eventDetails?.eventVenue,
           event_time: eventDetails?.eventTime
         });
-
         await payment.save();
         console.log('Payment saved to MongoDB:', payment);
 
