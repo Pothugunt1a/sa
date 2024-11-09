@@ -113,6 +113,7 @@ const resolvers = {
 
         // Store payment data in MongoDB
         const payment = new Payment({
+          payment_id: 'PAY-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
           order_id,
           amount,
           payment_method,
