@@ -8,6 +8,7 @@ const jwt = require('jsonwebtoken');
 const sendEmail = require('../utils/emailService');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 // Import other models as needed
+
 const resolvers = {
   Query: {
     users: async () => await User.find(),
