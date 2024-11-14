@@ -23,13 +23,8 @@ const typeDefs = gql`
 
   type Artist {
     artist_id: ID!
-    firstName: String!
-    lastName: String!
-    email: String!
-    phone: String!
+    name: String!
     bio: String
-    status: String!
-    is_verified: Boolean
     arts: [Art]
   }
 
@@ -131,8 +126,7 @@ const typeDefs = gql`
   }
 
   type Payment {
-    payment_id: ID
-    stripe_payment_intent_id: String!
+    _id: ID!
     order_id: String!
     amount: Float!
     payment_method: String!
@@ -144,19 +138,21 @@ const typeDefs = gql`
     city: String!
     state: String!
     transaction_id: String!
-    payment_date: String
     is_donation: Boolean!
     event_name: String
     event_date: String
     event_venue: String
     event_time: String
+    payment_date: String
+    stripe_payment_intent_id: String!
+    created_at: String!
+    updated_at: String!
   }
 
   type PaymentResponse {
     success: Boolean!
     message: String
     payment: Payment
-    clientSecret: String
   }
 
   type PaymentIntent {
@@ -231,26 +227,6 @@ const typeDefs = gql`
     role: Role
   }
 
-  type AuthResponse {
-    success: Boolean!
-    message: String
-    token: String
-    artist: Artist
-  }
-
-  input ArtistSignupInput {
-    firstName: String!
-    lastName: String!
-    email: String!
-    password: String!
-    phone: String!
-  }
-
-  input ArtistLoginInput {
-    email: String!
-    password: String!
-  }
-
   type Query {
     users: [User]
     user(id: ID!): User
@@ -282,11 +258,9 @@ const typeDefs = gql`
     createPayment(input: PaymentInput!): PaymentResponse!
     updatePaymentStatus(paymentId: ID!, status: String!): PaymentResponse!
     createPaymentIntent(amount: Int!, email: String!): PaymentIntent
-    confirmPayment(paymentIntentId: String!): PaymentResponse!
+    confirmPayment(paymentIntentId: String!): Payment
     assignRoleToUser(userId: ID!, roleId: ID!): UserRole
     removeRoleFromUser(userId: ID!, roleId: ID!): Boolean
-    artistSignup(input: ArtistSignupInput!): AuthResponse!
-    artistLogin(input: ArtistLoginInput!): AuthResponse!
   }
 
   input UserInput {
