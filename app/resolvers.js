@@ -4,11 +4,7 @@ const Artist = require('../models/Artist');
 const Art = require('../models/Art');
 const UserRole = require('../models/UserRole');
 const Payment = require('../models/Payment');
-const jwt = require('jsonwebtoken');
-const sendEmail = require('../utils/emailService');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 // Import other models as needed
-
 const resolvers = {
   Query: {
     users: async () => await User.find(),
@@ -22,25 +18,14 @@ const resolvers = {
     userRoles: async () => await UserRole.find(),
     userRole: async (_, { userId, roleId }) => await UserRole.findOne({ user_id: userId, role_id: roleId }),
     getPayment: async (_, { id }) => {
-      try {
-        const payment = await Payment.findOne({ payment_id: id });
-        if (!payment) {
-          throw new Error(`Payment with id ${id} not found`);
-        }
-        return payment;
-      } catch (error) {
-        console.error('Error fetching payment:', error);
-        throw new Error(`Failed to fetch payment: ${error.message}`);
+      const payment = await Payment.findOne({ payment_id: id });
+      if (!payment) {
+        console.log(`Payment with id ${id} not found`);
+      } else {
+        console.log('Found payment:', payment); // Add this line for debugging
       }
+      return payment;
     },
-    getAllPayments: async () => {
-      try {
-        return await Payment.find();
-      } catch (error) {
-        console.error('Error fetching payments:', error);
-        throw new Error('Failed to fetch payments');
-      }
-    }
     // Add more queries
   },
   Mutation: {
@@ -101,26 +86,18 @@ const resolvers = {
       await UserRole.findOneAndDelete({ user_id: userId, role_id: roleId });
       return true;
     },
-    createPayment: async (_, { input }) => {
+    createPayment: async (_, { input }, { stripe }) => {
       try {
-        const { 
-          amount, 
-          email, 
-          fullName, 
-          address1, 
-          address2, 
-          city, 
-          state,
-          isEvent,
-          eventDetails 
-        } = input;
+        const { order_id, amount, payment_method, email, fullName, address1, address2, city, state, isEvent, eventDetails } = input;
 
-        // Create Stripe payment intent
+        // Create payment intent in Stripe
         const paymentIntent = await stripe.paymentIntents.create({
-          amount: Math.round(amount * 100), // Convert to cents
+          amount: Math.round(amount * 100),
           currency: 'usd',
+          payment_method_types: [payment_method],
           receipt_email: email,
           metadata: {
+            order_id,
             full_name: fullName,
             address1,
             address2,
@@ -134,20 +111,20 @@ const resolvers = {
           }
         });
 
-        // Create payment record in MongoDB
+        // Store payment data in MongoDB
         const payment = new Payment({
-          stripe_payment_intent_id: paymentIntent.id,
-          order_id: `ORDER-${Date.now()}`,
+          order_id,
           amount,
-          payment_method: 'card',
+          payment_method,
           payment_status: 'pending',
+          transaction_id: paymentIntent.id,
+          stripe_payment_intent_id: paymentIntent.id,
           email,
           full_name: fullName,
           address1,
           address2,
           city,
           state,
-          transaction_id: paymentIntent.id,
           is_donation: !isEvent,
           event_name: eventDetails?.eventName,
           event_date: eventDetails?.eventDate,
@@ -159,27 +136,52 @@ const resolvers = {
         console.log('Payment saved to MongoDB:', payment);
 
         return {
-          success: true,
-          message: 'Payment created successfully',
-          payment: payment,
+          ...payment.toObject(),
           clientSecret: paymentIntent.client_secret
         };
       } catch (error) {
         console.error('Error creating payment:', error);
-        return {
-          success: false,
-          message: `Failed to create payment: ${error.message}`
-        };
+        throw new Error(`Failed to create payment: ${error.message}`);
       }
     },
-    confirmPayment: async (_, { paymentIntentId }) => {
+    updatePaymentStatus: async (_, { id, status }) => {
+      const updatedPayment = await Payment.findOneAndUpdate(
+        { payment_id: id },
+        { payment_status: status },
+        { new: true }
+      );
+      if (!updatedPayment) {
+        throw new Error(`Payment with id ${id} not found`);
+      }
+      return {
+        order_id: updatedPayment.order_id,
+        payment_status: updatedPayment.payment_status,
+        stripe_payment_intent_id: updatedPayment.stripe_payment_intent_id
+      };
+    },
+    createPaymentIntent: async (_, { amount, email }, { stripe }) => {
+      try {
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount,
+          currency: 'usd',
+          receipt_email: email,
+        });
+
+        return { clientSecret: paymentIntent.client_secret };
+      } catch (error) {
+        console.error('Error creating payment intent:', error);
+        throw new Error('Failed to create payment intent');
+      }
+    },
+    confirmPayment: async (_, { paymentIntentId }, { stripe }) => {
       try {
         const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
         
         if (paymentIntent.status === 'succeeded') {
+          // Update payment record in MongoDB
           const payment = await Payment.findOneAndUpdate(
             { stripe_payment_intent_id: paymentIntentId },
-            { 
+            {
               payment_status: 'completed',
               payment_date: new Date()
             },
@@ -187,137 +189,18 @@ const resolvers = {
           );
 
           if (!payment) {
-            throw new Error('Payment record not found');
+            throw new Error('Payment record not found in MongoDB');
           }
 
-          return {
-            success: true,
-            message: 'Payment confirmed successfully',
-            payment
-          };
+          return payment;
         } else {
-          throw new Error(`Payment is in ${paymentIntent.status} state`);
+          throw new Error(`Payment is in ${paymentIntent.status} state. Unable to confirm.`);
         }
       } catch (error) {
         console.error('Error confirming payment:', error);
-        return {
-          success: false,
-          message: `Failed to confirm payment: ${error.message}`
-        };
+        throw new Error(`Failed to confirm payment: ${error.message}`);
       }
     },
-    artistSignup: async (_, { input }) => {
-      try {
-        // Check if email already exists
-        const existingArtist = await Artist.findOne({ email: input.email });
-        if (existingArtist) {
-          return {
-            success: false,
-            message: 'Email already registered'
-          };
-        }
-
-        // Create verification token
-        const verificationToken = jwt.sign(
-          { email: input.email },
-          process.env.JWT_SECRET,
-          { expiresIn: '24h' }
-        );
-
-        // Create new artist
-        const artist = new Artist({
-          ...input,
-          verification_token: verificationToken,
-          artist_id: Date.now() // You might want to implement a better ID generation strategy
-        });
-
-        await artist.save();
-
-        // Send verification email
-        await sendEmail({
-          to: input.email,
-          subject: 'Verify your artist account',
-          html: `Please click this link to verify your account: ${process.env.FRONTEND_URL}/verify/${verificationToken}`
-        });
-
-        // Generate JWT token
-        const token = jwt.sign(
-          { artist_id: artist.artist_id },
-          process.env.JWT_SECRET,
-          { expiresIn: '24h' }
-        );
-
-        return {
-          success: true,
-          message: 'Artist registered successfully. Please check your email for verification.',
-          token,
-          artist
-        };
-      } catch (error) {
-        console.error('Artist signup error:', error);
-        return {
-          success: false,
-          message: 'Failed to register artist'
-        };
-      }
-    },
-    artistLogin: async (_, { input }) => {
-      try {
-        // Find artist by email
-        const artist = await Artist.findOne({ email: input.email });
-        if (!artist) {
-          return {
-            success: false,
-            message: 'Invalid credentials'
-          };
-        }
-
-        // Verify password
-        const isValidPassword = await artist.comparePassword(input.password);
-        if (!isValidPassword) {
-          return {
-            success: false,
-            message: 'Invalid credentials'
-          };
-        }
-
-        // Check if artist is verified
-        if (!artist.is_verified) {
-          return {
-            success: false,
-            message: 'Please verify your email before logging in'
-          };
-        }
-
-        // Check if artist is active
-        if (artist.status !== 'active') {
-          return {
-            success: false,
-            message: 'Your account is not active. Please contact support.'
-          };
-        }
-
-        // Generate JWT token
-        const token = jwt.sign(
-          { artist_id: artist.artist_id },
-          process.env.JWT_SECRET,
-          { expiresIn: '24h' }
-        );
-
-        return {
-          success: true,
-          message: 'Login successful',
-          token,
-          artist
-        };
-      } catch (error) {
-        console.error('Artist login error:', error);
-        return {
-          success: false,
-          message: 'Login failed'
-        };
-      }
-    }
     // Add more mutations
   },
   User: {
