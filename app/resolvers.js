@@ -4,6 +4,8 @@ const Artist = require('../models/Artist');
 const Art = require('../models/Art');
 const UserRole = require('../models/UserRole');
 const Payment = require('../models/Payment');
+const jwt = require('jsonwebtoken');
+const sendEmail = require('../utils/emailService');
 // Import other models as needed
 const resolvers = {
   Query: {
@@ -113,6 +115,7 @@ const resolvers = {
 
         // Store payment data in MongoDB
         const payment = new Payment({
+          payment_id: 'PAY-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
           order_id,
           amount,
           payment_method,
@@ -201,6 +204,118 @@ const resolvers = {
         throw new Error(`Failed to confirm payment: ${error.message}`);
       }
     },
+    artistSignup: async (_, { input }) => {
+      try {
+        // Check if email already exists
+        const existingArtist = await Artist.findOne({ email: input.email });
+        if (existingArtist) {
+          return {
+            success: false,
+            message: 'Email already registered'
+          };
+        }
+
+        // Create verification token
+        const verificationToken = jwt.sign(
+          { email: input.email },
+          process.env.JWT_SECRET,
+          { expiresIn: '24h' }
+        );
+
+        // Create new artist
+        const artist = new Artist({
+          ...input,
+          verification_token: verificationToken,
+          artist_id: Date.now() // You might want to implement a better ID generation strategy
+        });
+
+        await artist.save();
+
+        // Send verification email
+        await sendEmail({
+          to: input.email,
+          subject: 'Verify your artist account',
+          html: `Please click this link to verify your account: ${process.env.FRONTEND_URL}/verify/${verificationToken}`
+        });
+
+        // Generate JWT token
+        const token = jwt.sign(
+          { artist_id: artist.artist_id },
+          process.env.JWT_SECRET,
+          { expiresIn: '24h' }
+        );
+
+        return {
+          success: true,
+          message: 'Artist registered successfully. Please check your email for verification.',
+          token,
+          artist
+        };
+      } catch (error) {
+        console.error('Artist signup error:', error);
+        return {
+          success: false,
+          message: 'Failed to register artist'
+        };
+      }
+    },
+    artistLogin: async (_, { input }) => {
+      try {
+        // Find artist by email
+        const artist = await Artist.findOne({ email: input.email });
+        if (!artist) {
+          return {
+            success: false,
+            message: 'Invalid credentials'
+          };
+        }
+
+        // Verify password
+        const isValidPassword = await artist.comparePassword(input.password);
+        if (!isValidPassword) {
+          return {
+            success: false,
+            message: 'Invalid credentials'
+          };
+        }
+
+        // Check if artist is verified
+        if (!artist.is_verified) {
+          return {
+            success: false,
+            message: 'Please verify your email before logging in'
+          };
+        }
+
+        // Check if artist is active
+        if (artist.status !== 'active') {
+          return {
+            success: false,
+            message: 'Your account is not active. Please contact support.'
+          };
+        }
+
+        // Generate JWT token
+        const token = jwt.sign(
+          { artist_id: artist.artist_id },
+          process.env.JWT_SECRET,
+          { expiresIn: '24h' }
+        );
+
+        return {
+          success: true,
+          message: 'Login successful',
+          token,
+          artist
+        };
+      } catch (error) {
+        console.error('Artist login error:', error);
+        return {
+          success: false,
+          message: 'Login failed'
+        };
+      }
+    }
     // Add more mutations
   },
   User: {
