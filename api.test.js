@@ -48,16 +48,18 @@ const stripeMock = {
 let server;
 
 beforeAll(async () => {
-  await mongoose.connect(global.__MONGO_URI__);
   server = new ApolloServer({ 
     typeDefs, 
     resolvers,
     context: () => ({ stripe: stripeMock })
   });
+  await server.start();
+  await mongoose.connect(global.__MONGO_URI__);
 });
 
 afterAll(async () => {
   await mongoose.connection.close();
+  await server.stop();
 });
 
 beforeEach(async () => {
@@ -67,7 +69,7 @@ beforeEach(async () => {
   await Payment.deleteMany({});
 });
 
-describe('GraphQL API', () => {
+describe('User and Role API', () => {
   it('should create a user', async () => {
     const CREATE_USER = gql`
       mutation CreateUser($input: UserInput!) {
@@ -85,7 +87,7 @@ describe('GraphQL API', () => {
       variables: {
         input: {
           Username: "testuser",
-          email: "unique@example.com", // Use a unique email
+          email: "unique@example.com",
           password: "password123",
           status: "active"
         }
@@ -122,7 +124,7 @@ describe('GraphQL API', () => {
   it('should assign a role to a user', async () => {
     const user = await User.create({
       Username: "testuser",
-      email: "unique@example.com", // Use a unique email
+      email: "unique@example.com",
       password: "password123",
       status: "active"
     });
@@ -151,16 +153,23 @@ describe('GraphQL API', () => {
     expect(res.data.assignRoleToUser.user_id).toBe(user.user_id.toString());
     expect(res.data.assignRoleToUser.role_id).toBe(role.role_id.toString());
   });
+});
 
+describe('Payment API', () => {
   it('should create a payment', async () => {
     const CREATE_PAYMENT = gql`
       mutation CreatePayment($input: PaymentInput!) {
         createPayment(input: $input) {
-          order_id
-          amount
-          payment_method
-          payment_status
-          email
+          success
+          message
+          payment {
+            order_id
+            amount
+            payment_method
+            payment_status
+            email
+          }
+          clientSecret
         }
       }
     `;
@@ -169,22 +178,135 @@ describe('GraphQL API', () => {
       query: CREATE_PAYMENT,
       variables: {
         input: {
-          order_id: "ORDER123",
           amount: 100.50,
-          payment_method: "credit_card",
-          email: "unique@example.com"
-        }
-      }
+          email: "test@example.com",
+          fullName: "Test User",
+          address1: "123 Test St",
+          city: "Test City",
+          state: "TS",
+          isEvent: false
+        },
+      },
     });
 
-    if (res.errors) {
-      console.error('GraphQL errors:', res.errors);
-    }
+    expect(res.data.createPayment.success).toBe(true);
+    expect(res.data.createPayment.payment.amount).toBe(100.50);
+    expect(res.data.createPayment.clientSecret).toBe('test_client_secret');
+  });
 
-    expect(res.data.createPayment).toHaveProperty('order_id');
-    expect(res.data.createPayment.order_id).toBe("ORDER123");
-    expect(res.data.createPayment.amount).toBe(100.50);
-    expect(res.data.createPayment.payment_status).toBe("pending");
-    expect(res.data.createPayment.email).toBe("unique@example.com");
+  it('should get a payment by ID', async () => {
+    const payment = await Payment.create({
+      stripe_payment_intent_id: 'test_intent_id',
+      order_id: 'TEST123',
+      amount: 100.50,
+      payment_method: 'card',
+      payment_status: 'pending',
+      email: 'test@example.com',
+      full_name: 'Test User'
+    });
+
+    const GET_PAYMENT = gql`
+      query GetPayment($id: ID!) {
+        getPayment(id: $id) {
+          _id
+          order_id
+          amount
+          payment_status
+          email
+        }
+      }
+    `;
+
+    const res = await server.executeOperation({
+      query: GET_PAYMENT,
+      variables: { id: payment._id.toString() },
+    });
+
+    expect(res.data.getPayment.order_id).toBe('TEST123');
+    expect(res.data.getPayment.amount).toBe(100.50);
+  });
+
+  it('should update payment status', async () => {
+    const payment = await Payment.create({
+      stripe_payment_intent_id: 'test_intent_id',
+      order_id: 'TEST123',
+      amount: 100.50,
+      payment_method: 'card',
+      payment_status: 'pending',
+      email: 'test@example.com',
+      full_name: 'Test User'
+    });
+
+    const UPDATE_PAYMENT_STATUS = gql`
+      mutation UpdatePaymentStatus($paymentIntentId: String!, $status: String!) {
+        updatePaymentStatus(paymentIntentId: $paymentIntentId, status: $status) {
+          success
+          message
+          payment {
+            payment_status
+          }
+        }
+      }
+    `;
+
+    const res = await server.executeOperation({
+      query: UPDATE_PAYMENT_STATUS,
+      variables: { 
+        paymentIntentId: 'test_intent_id',
+        status: 'completed'
+      },
+    });
+
+    expect(res.data.updatePaymentStatus.success).toBe(true);
+    expect(res.data.updatePaymentStatus.payment.payment_status).toBe('completed');
+  });
+
+  it('should create a payment intent', async () => {
+    const CREATE_PAYMENT_INTENT = gql`
+      mutation CreatePaymentIntent($amount: Int!, $email: String!) {
+        createPaymentIntent(amount: $amount, email: $email) {
+          clientSecret
+        }
+      }
+    `;
+
+    const res = await server.executeOperation({
+      query: CREATE_PAYMENT_INTENT,
+      variables: { 
+        amount: 10000,
+        email: 'test@example.com'
+      },
+    });
+
+    expect(res.data.createPaymentIntent.clientSecret).toBe('test_client_secret');
+  });
+
+  it('should confirm a payment', async () => {
+    await Payment.create({
+      stripe_payment_intent_id: 'test_intent_id',
+      order_id: 'TEST123',
+      amount: 100.50,
+      payment_method: 'card',
+      payment_status: 'pending',
+      email: 'test@example.com',
+      full_name: 'Test User'
+    });
+
+    const CONFIRM_PAYMENT = gql`
+      mutation ConfirmPayment($paymentIntentId: String!) {
+        confirmPayment(paymentIntentId: $paymentIntentId) {
+          payment_status
+          payment_date
+        }
+      }
+    `;
+
+    const res = await server.executeOperation({
+      query: CONFIRM_PAYMENT,
+      variables: { paymentIntentId: 'test_intent_id' },
+    });
+
+    expect(res.data.confirmPayment.payment_status).toBe('completed');
+    expect(res.data.confirmPayment.payment_date).toBeTruthy();
   });
 });
