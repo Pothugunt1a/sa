@@ -1,11 +1,6 @@
 const mongoose = require('mongoose');
-const AutoIncrement = require('mongoose-sequence')(mongoose);
 
 const PaymentSchema = new mongoose.Schema({
-  payment_id: {
-    type: Number,
-    unique: true
-  },
   stripe_payment_intent_id: {
     type: String,
     required: true,
@@ -21,12 +16,14 @@ const PaymentSchema = new mongoose.Schema({
   },
   payment_method: {
     type: String,
-    required: true
+    required: true,
+    default: 'card'
   },
   payment_status: {
     type: String,
     required: true,
-    enum: ['pending', 'completed', 'failed']
+    enum: ['pending', 'completed', 'failed'],
+    default: 'pending'
   },
   email: {
     type: String,
@@ -50,23 +47,26 @@ const PaymentSchema = new mongoose.Schema({
     required: true
   },
   transaction_id: String,
-  payment_date: {
-    type: Date,
-    default: Date.now
-  },
+  payment_date: Date,
   is_donation: {
     type: Boolean,
-    default: false
+    default: true
   },
   event_name: String,
   event_date: String,
   event_venue: String,
   event_time: String
 }, {
-  timestamps: true
+  timestamps: true // This will add created_at and updated_at fields
 });
 
-// Add auto-incrementing payment_id
-PaymentSchema.plugin(AutoIncrement, { inc_field: 'payment_id' });
+// Add a virtual getter for _id to ensure it's always available
+PaymentSchema.virtual('id').get(function() {
+  return this._id.toHexString();
+});
+
+// Ensure virtuals are included in JSON output
+PaymentSchema.set('toJSON', { virtuals: true });
+PaymentSchema.set('toObject', { virtuals: true });
 
 module.exports = mongoose.model('Payment', PaymentSchema);
