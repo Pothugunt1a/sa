@@ -1,12 +1,6 @@
 const mongoose = require('mongoose');
 
 const PaymentSchema = new mongoose.Schema({
-  payment_id: {
-    type: String,
-    required: true,
-    unique: true,
-    default: () => 'PAY-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9).toUpperCase()
-  },
   stripe_payment_intent_id: {
     type: String,
     required: true,
@@ -33,11 +27,23 @@ const PaymentSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  full_name: String,
-  address1: String,
+  full_name: {
+    type: String,
+    required: true
+  },
+  address1: {
+    type: String,
+    required: true
+  },
   address2: String,
-  city: String,
-  state: String,
+  city: {
+    type: String,
+    required: true
+  },
+  state: {
+    type: String,
+    required: true
+  },
   transaction_id: String,
   payment_date: {
     type: Date,
@@ -51,14 +57,6 @@ const PaymentSchema = new mongoose.Schema({
   event_date: String,
   event_venue: String,
   event_time: String
-});
-
-// Add a pre-save hook to ensure payment_id is never null
-PaymentSchema.pre('save', function(next) {
-  if (!this.payment_id) {
-    this.payment_id = 'PAY-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-  }
-  next();
 });
 
 module.exports = mongoose.model('Payment', PaymentSchema);
