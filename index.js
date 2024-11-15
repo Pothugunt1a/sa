@@ -71,52 +71,27 @@ async function startServer() {
         eventDetails 
       } = req.body;
 
-      // Create Stripe payment intent
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount,
-        currency: 'usd',
-        receipt_email: email,
-        metadata: {
-          full_name: fullName,
-          address1,
-          address2,
-          city,
-          state,
-          is_event: isEvent ? 'true' : 'false',
-          event_name: eventDetails?.eventName,
-          event_date: eventDetails?.eventDate,
-          event_venue: eventDetails?.eventVenue,
-          event_time: eventDetails?.eventTime
-        }
-      });
-
-      // Create payment record in MongoDB
-      const payment = new Payment({
-        stripe_payment_intent_id: paymentIntent.id,
-        order_id: `ORDER-${Date.now()}`,
-        amount: amount / 100, // Convert cents to dollars
-        payment_method: 'card',
-        payment_status: 'pending',
-        email,
-        full_name: fullName,
-        address1,
-        address2,
-        city,
-        state,
-        transaction_id: paymentIntent.id,
-        is_donation: !isEvent,
-        event_name: eventDetails?.eventName,
-        event_date: eventDetails?.eventDate,
-        event_venue: eventDetails?.eventVenue,
-        event_time: eventDetails?.eventTime
-      });
-
-      await payment.save();
-      console.log('Payment record created in MongoDB:', payment);
+      const result = await resolvers.Mutation.createPayment(
+        null,
+        {
+          input: {
+            amount: amount / 100,
+            email,
+            fullName,
+            address1,
+            address2,
+            city,
+            state,
+            isEvent,
+            eventDetails
+          }
+        },
+        { stripe }
+      );
 
       res.json({ 
-        clientSecret: paymentIntent.client_secret,
-        paymentId: payment._id
+        clientSecret: result.clientSecret,
+        paymentId: result.payment._id
       });
     } catch (error) {
       console.error('Error processing payment:', error);
@@ -124,27 +99,25 @@ async function startServer() {
     }
   });
 
-  // Add endpoint to update payment status after successful confirmation
   app.post('/payment-confirmation', async (req, res) => {
     try {
       const { paymentIntentId } = req.body;
 
-      // Update payment status in MongoDB
-      const payment = await Payment.findOneAndUpdate(
-        { stripe_payment_intent_id: paymentIntentId },
+      const result = await resolvers.Mutation.updatePaymentStatus(
+        null,
         { 
-          payment_status: 'completed',
-          payment_date: new Date()
+          paymentIntentId,
+          status: 'completed'
         },
-        { new: true }
+        { stripe }
       );
 
-      if (!payment) {
-        throw new Error('Payment record not found');
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to update payment status');
       }
 
-      console.log('Payment status updated:', payment);
-      res.json({ success: true, payment });
+      console.log('Payment status updated:', result.payment);
+      res.json({ success: true, payment: result.payment });
     } catch (error) {
       console.error('Error updating payment status:', error);
       res.status(500).json({ error: error.message });
