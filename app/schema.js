@@ -1,5 +1,4 @@
 const { gql } = require('apollo-server-express');
-
 const typeDefs = gql`
   type User {
     user_id: ID!
@@ -134,11 +133,11 @@ const typeDefs = gql`
     payment_method: String!
     payment_status: String!
     email: String!
-    full_name: String
-    address1: String
+    full_name: String!
+    address1: String!
     address2: String
-    city: String
-    state: String
+    city: String!
+    state: String!
     transaction_id: String
     payment_date: String
     is_donation: Boolean
