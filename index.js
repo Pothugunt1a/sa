@@ -71,6 +71,15 @@ async function startServer() {
         eventDetails 
       } = req.body;
 
+      console.log('Creating payment with data:', {
+        amount,
+        email,
+        fullName,
+        address1,
+        city,
+        state
+      });
+
       const result = await resolvers.Mutation.createPayment(
         null,
         {
