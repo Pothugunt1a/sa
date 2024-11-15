@@ -7,7 +7,6 @@ const User = require('./models/User');
 const Role = require('./models/Role');
 const UserRole = require('./models/UserRole');
 const Payment = require('./models/Payment');
-
 // Mock Stripe
 jest.mock('stripe', () => {
   return jest.fn().mockImplementation(() => ({
