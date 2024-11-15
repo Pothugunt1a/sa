@@ -16,7 +16,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 async function startServer() {
   const app = express();
-  
+
   app.use(express.json());
 
   app.use(cors({
@@ -44,7 +44,7 @@ async function startServer() {
   });
 
   await server.start();
-  
+
   server.applyMiddleware({ 
     app,
     path: '/graphql',
@@ -57,8 +57,8 @@ async function startServer() {
 
   app.post('/create-payment-intent', async (req, res) => {
     try {
-      console.log('Raw request body:', JSON.stringify(req.body, null, 2));
-      
+      console.log('Received payment request:', req.body);
+
       const { 
         amount, 
         email, 
@@ -71,27 +71,14 @@ async function startServer() {
         eventDetails 
       } = req.body;
 
-      console.log('Validation check:', {
-        hasFullName: !!fullName,
-        hasAddress1: !!address1,
-        hasCity: !!city,
-        hasState: !!state,
+      console.log('Creating payment with data:', {
+        amount,
+        email,
         fullName,
         address1,
         city,
         state
       });
-
-      if (!fullName || !address1 || !city || !state) {
-        const missingFields = [];
-        if (!fullName) missingFields.push('fullName');
-        if (!address1) missingFields.push('address1');
-        if (!city) missingFields.push('city');
-        if (!state) missingFields.push('state');
-        
-        throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
-      }
-
       const result = await resolvers.Mutation.createPayment(
         null,
         {
