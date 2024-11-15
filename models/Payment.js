@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+
 const PaymentSchema = new mongoose.Schema({
   stripe_payment_intent_id: {
     type: String,
@@ -26,23 +27,11 @@ const PaymentSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  full_name: {
-    type: String,
-    required: true
-  },
-  address1: {
-    type: String,
-    required: true
-  },
+  full_name: String,
+  address1: String,
   address2: String,
-  city: {
-    type: String,
-    required: true
-  },
-  state: {
-    type: String,
-    required: true
-  },
+  city: String,
+  state: String,
   transaction_id: String,
   payment_date: {
     type: Date,
