@@ -57,7 +57,7 @@ async function startServer() {
 
   app.post('/create-payment-intent', async (req, res) => {
     try {
-      console.log('Raw request body:', req.body);
+      console.log('Raw request body:', JSON.stringify(req.body, null, 2));
       
       const { 
         amount, 
@@ -71,20 +71,25 @@ async function startServer() {
         eventDetails 
       } = req.body;
 
-      console.log('Extracted payment data:', {
-        amount,
-        email,
+      console.log('Validation check:', {
+        hasFullName: !!fullName,
+        hasAddress1: !!address1,
+        hasCity: !!city,
+        hasState: !!state,
         fullName,
         address1,
-        address2,
         city,
-        state,
-        isEvent,
-        eventDetails
+        state
       });
 
       if (!fullName || !address1 || !city || !state) {
-        throw new Error('Missing required fields: fullName, address1, city, and state are required');
+        const missingFields = [];
+        if (!fullName) missingFields.push('fullName');
+        if (!address1) missingFields.push('address1');
+        if (!city) missingFields.push('city');
+        if (!state) missingFields.push('state');
+        
+        throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
       }
 
       const result = await resolvers.Mutation.createPayment(
