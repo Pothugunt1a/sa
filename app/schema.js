@@ -127,7 +127,6 @@ const typeDefs = gql`
 
   type Payment {
     _id: ID!
-    stripe_payment_intent_id: String!
     order_id: String!
     amount: Float!
     payment_method: String!
@@ -138,20 +137,23 @@ const typeDefs = gql`
     address2: String
     city: String!
     state: String!
-    transaction_id: String
-    payment_date: String
-    is_donation: Boolean
+    transaction_id: String!
+    stripe_payment_intent_id: String!
+    is_donation: Boolean!
     event_name: String
     event_date: String
     event_venue: String
     event_time: String
+    payment_date: String
+    clientSecret: String
+    created_at: String
+    updated_at: String
   }
 
   type PaymentResponse {
     success: Boolean!
     message: String!
-    payment: Payment!
-    clientSecret: String!
+    payment: Payment
   }
 
   type PaymentIntent {
@@ -238,7 +240,7 @@ const typeDefs = gql`
     getPayment(id: ID!): Payment
     userRoles: [UserRole]
     userRole(userId: ID!, roleId: ID!): UserRole
-    getAllPayments: [Payment!]!
+    getAllPayments: [Payment]!
   }
 
   type Mutation {
@@ -289,6 +291,7 @@ const typeDefs = gql`
 
   input PaymentInput {
     amount: Float!
+    payment_method: String
     email: String!
     fullName: String!
     address1: String!
