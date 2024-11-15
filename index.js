@@ -8,7 +8,6 @@ const cors = require('cors');
 const Stripe = require('stripe');
 const Payment = require('./models/Payment');
 
-
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('STRIPE_SECRET_KEY is not set in the environment variables');
 }
@@ -58,7 +57,7 @@ async function startServer() {
 
   app.post('/create-payment-intent', async (req, res) => {
     try {
-      console.log('Received payment request:', req.body);
+      console.log('Raw request body:', req.body);
       
       const { 
         amount, 
@@ -72,14 +71,21 @@ async function startServer() {
         eventDetails 
       } = req.body;
 
-      console.log('Creating payment with data:', {
+      console.log('Extracted payment data:', {
         amount,
         email,
         fullName,
         address1,
+        address2,
         city,
-        state
+        state,
+        isEvent,
+        eventDetails
       });
+
+      if (!fullName || !address1 || !city || !state) {
+        throw new Error('Missing required fields: fullName, address1, city, and state are required');
+      }
 
       const result = await resolvers.Mutation.createPayment(
         null,
