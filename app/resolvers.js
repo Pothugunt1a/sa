@@ -21,7 +21,8 @@ const resolvers = {
       try {
         const payment = await Payment.findById(id);
         if (!payment) {
-          throw new Error('Payment not found');
+          console.log(`Payment with id ${id} not found`);
+          return null;
         }
         return payment;
       } catch (error) {
@@ -29,14 +30,6 @@ const resolvers = {
         throw new Error(`Failed to fetch payment: ${error.message}`);
       }
     },
-    getAllPayments: async () => {
-      try {
-        return await Payment.find();
-      } catch (error) {
-        console.error('Error fetching payments:', error);
-        throw new Error('Failed to fetch payments');
-      }
-    }
     // Add more queries
   },
   Mutation: {
@@ -111,7 +104,7 @@ const resolvers = {
           eventDetails 
         } = input;
 
-        // Create Stripe payment intent
+        // Create payment intent in Stripe
         const paymentIntent = await stripe.paymentIntents.create({
           amount: Math.round(amount * 100),
           currency: 'usd',
@@ -130,17 +123,20 @@ const resolvers = {
           }
         });
 
-        // Create payment record in MongoDB
+        // Generate order ID
+        const generatedOrderId = `ORDER-${Date.now()}`;
+
+        // Store payment data in MongoDB
         const payment = new Payment({
           stripe_payment_intent_id: paymentIntent.id,
-          order_id: `ORDER-${Date.now()}`,
-          amount: amount,
-          payment_method: 'card',
+          order_id: generatedOrderId,
+          amount,
+          payment_method: 'card', // Set default payment method
           payment_status: 'pending',
           email,
           full_name: fullName,
           address1,
-          address2: address2 || '',
+          address2,
           city,
           state,
           transaction_id: paymentIntent.id,
@@ -152,8 +148,8 @@ const resolvers = {
         });
 
         await payment.save();
-        console.log('Payment saved:', payment);
-        
+        console.log('Payment saved to MongoDB:', payment);
+
         return {
           success: true,
           message: 'Payment created successfully',
@@ -165,10 +161,10 @@ const resolvers = {
         throw new Error(`Failed to create payment: ${error.message}`);
       }
     },
-    updatePaymentStatus: async (_, { paymentIntentId, status }) => {
+    updatePaymentStatus: async (_, { paymentId, status }) => {
       try {
-        const payment = await Payment.findOneAndUpdate(
-          { stripe_payment_intent_id: paymentIntentId },
+        const payment = await Payment.findByIdAndUpdate(
+          paymentId,
           { 
             payment_status: status,
             payment_date: new Date()
@@ -177,7 +173,7 @@ const resolvers = {
         );
 
         if (!payment) {
-          throw new Error('Payment record not found');
+          throw new Error('Payment not found');
         }
 
         return {
