@@ -151,7 +151,7 @@ const typeDefs = gql`
     success: Boolean!
     message: String!
     payment: Payment!
-    clientSecret: String
+    clientSecret: String!
   }
 
   type PaymentIntent {
@@ -255,7 +255,7 @@ const typeDefs = gql`
     updateArt(id: ID!, input: ArtInput!): Art
     deleteArt(id: ID!): Boolean
     createPayment(input: PaymentInput!): PaymentResponse!
-    updatePaymentStatus(paymentIntentId: String!, status: String!): PaymentResponse!
+    updatePaymentStatus(paymentId: ID!, status: String!): PaymentResponse!
     createPaymentIntent(amount: Int!, email: String!): PaymentIntent!
     confirmPayment(paymentIntentId: String!): Payment!
     assignRoleToUser(userId: ID!, roleId: ID!): UserRole
