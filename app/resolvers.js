@@ -113,7 +113,7 @@ const resolvers = {
 
         // Create Stripe payment intent
         const paymentIntent = await stripe.paymentIntents.create({
-          amount: Math.round(amount * 100), // Convert to cents
+          amount: Math.round(amount * 100),
           currency: 'usd',
           receipt_email: email,
           metadata: {
@@ -140,7 +140,7 @@ const resolvers = {
           email,
           full_name: fullName,
           address1,
-          address2,
+          address2: address2 || '',
           city,
           state,
           transaction_id: paymentIntent.id,
@@ -152,6 +152,7 @@ const resolvers = {
         });
 
         await payment.save();
+        console.log('Payment saved:', payment);
         
         return {
           success: true,
