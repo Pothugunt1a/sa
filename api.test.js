@@ -229,7 +229,9 @@ describe('GraphQL API', () => {
     });
 
     it('should update payment status', async () => {
+      // Create a test payment first
       const payment = await Payment.create({
+        stripe_payment_intent_id: 'test_intent_id',
         order_id: "TEST-123",
         amount: 100,
         payment_method: "card",
@@ -240,7 +242,6 @@ describe('GraphQL API', () => {
         city: "Test City",
         state: "TS",
         transaction_id: "test_transaction",
-        stripe_payment_intent_id: "test_intent_id",
         is_donation: true
       });
 
