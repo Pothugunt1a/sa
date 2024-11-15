@@ -172,15 +172,8 @@ const resolvers = {
     },
     updatePaymentStatus: async (_, { paymentId, status }) => {
       try {
-        const payment = await Payment.findByIdAndUpdate(
-          paymentId,
-          { 
-            payment_status: status,
-            ...(status === 'completed' ? { payment_date: new Date() } : {})
-          },
-          { new: true }
-        );
-
+        const payment = await Payment.findOne({ _id: paymentId });
+        
         if (!payment) {
           return {
             success: false,
@@ -189,10 +182,17 @@ const resolvers = {
           };
         }
 
+        payment.payment_status = status;
+        if (status === 'completed') {
+          payment.payment_date = new Date();
+        }
+        
+        await payment.save();
+
         return {
           success: true,
           message: 'Payment status updated successfully',
-          payment
+          payment: payment
         };
       } catch (error) {
         console.error('Error updating payment status:', error);
