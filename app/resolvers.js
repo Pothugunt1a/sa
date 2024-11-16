@@ -19,10 +19,15 @@ const resolvers = {
     userRole: async (_, { userId, roleId }) => await UserRole.findOne({ user_id: userId, role_id: roleId }),
     getPayment: async (_, { id }) => {
       try {
+        console.log('Looking for payment with ID:', id);
         const payment = await Payment.findById(id);
+        
         if (!payment) {
-          throw new Error('Payment not found');
+          console.log(`Payment with id ${id} not found`);
+          return null;
         }
+        
+        console.log('Found payment:', payment);
         return payment;
       } catch (error) {
         console.error('Error fetching payment:', error);
