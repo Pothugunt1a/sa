@@ -71,14 +71,6 @@ async function startServer() {
         eventDetails 
       } = req.body;
 
-      console.log('Creating payment with data:', {
-        amount,
-        email,
-        fullName,
-        address1,
-        city,
-        state
-      });
       const result = await resolvers.Mutation.createPayment(
         null,
         {
@@ -111,6 +103,7 @@ async function startServer() {
     try {
       const { paymentIntentId } = req.body;
 
+      // Update payment status in MongoDB
       const result = await resolvers.Mutation.updatePaymentStatus(
         null,
         { 
@@ -123,7 +116,6 @@ async function startServer() {
       if (!result.success) {
         throw new Error(result.message || 'Failed to update payment status');
       }
-
       console.log('Payment status updated:', result.payment);
       res.json({ success: true, payment: result.payment });
     } catch (error) {
