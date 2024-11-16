@@ -14,20 +14,17 @@ const typeDefs = gql`
     reviews: [Review]
     orders: [Order]
   }
-
   type Role {
     role_id: ID!
     role_name: String!
     users: [User]
   }
-
   type Artist {
     artist_id: ID!
     name: String!
     bio: String
     arts: [Art]
   }
-
   type Art {
     art_id: ID!
     artist_id: ID!
@@ -46,13 +43,11 @@ const typeDefs = gql`
     orderItems: [OrderItem]
     returnItems: [ReturnItem]
   }
-
   type ArtImages {
     image_id: ID!
     art_id: ID!
     image_url: String!
   }
-
   type Wishlist {
     wishlist_id: ID!
     user_id: ID!
@@ -61,7 +56,6 @@ const typeDefs = gql`
     user: User
     art: Art
   }
-
   type ShoppingCart {
     cart_id: ID!
     user_id: ID!
@@ -70,7 +64,6 @@ const typeDefs = gql`
     user: User
     cartItems: [CartItem]
   }
-
   type CartItem {
     cart_item_id: ID!
     cart_id: ID!
@@ -79,7 +72,6 @@ const typeDefs = gql`
     shoppingCart: ShoppingCart
     art: Art
   }
-
   type SubscriptionPlan {
     plan_id: ID!
     plan_name: String!
@@ -87,7 +79,6 @@ const typeDefs = gql`
     features: String
     userSubscriptions: [UserSubscription]
   }
-
   type UserSubscription {
     subscription_id: ID!
     user_id: ID!
@@ -97,7 +88,6 @@ const typeDefs = gql`
     user: User
     subscriptionPlan: SubscriptionPlan
   }
-
   type Store {
     store_id: ID!
     store_name: String!
@@ -105,7 +95,6 @@ const typeDefs = gql`
     description: String
     storeInventories: [StoreInventory]
   }
-
   type StoreInventory {
     store_inventory_id: ID!
     store_id: ID!
@@ -115,7 +104,6 @@ const typeDefs = gql`
     store: Store
     art: Art
   }
-
   type Catalog {
     catalog_id: ID!
     name: String!
@@ -124,42 +112,36 @@ const typeDefs = gql`
     artist: Artist
     arts: [Art]
   }
-
   type Payment {
     _id: ID!
+    stripe_payment_intent_id: String!
     order_id: String!
     amount: Float!
     payment_method: String!
     payment_status: String!
     email: String!
-    full_name: String!
-    address1: String!
+    full_name: String
+    address1: String
     address2: String
-    city: String!
-    state: String!
-    transaction_id: String!
-    stripe_payment_intent_id: String!
-    is_donation: Boolean!
+    city: String
+    state: String
+    transaction_id: String
+    payment_date: String
+    is_donation: Boolean
     event_name: String
     event_date: String
     event_venue: String
     event_time: String
-    payment_date: String
-    clientSecret: String
-    created_at: String
-    updated_at: String
   }
-
   type PaymentResponse {
     success: Boolean!
     message: String!
-    payment: Payment
+    payment: Payment!
+    clientSecret: String
   }
-
   type PaymentIntent {
     clientSecret: String!
   }
-
   type OrderItem {
     order_item_id: ID!
     order_id: ID!
@@ -169,7 +151,6 @@ const typeDefs = gql`
     order: Order
     art: Art
   }
-
   type OrderTracking {
     tracking_id: ID!
     order_id: ID!
@@ -179,7 +160,6 @@ const typeDefs = gql`
     updated_at: String
     order: Order
   }
-
   type Review {
     review_id: ID!
     user_id: ID!
@@ -190,7 +170,6 @@ const typeDefs = gql`
     user: User
     art: Art
   }
-
   type Order {
     order_id: ID!
     customer_id: ID!
@@ -209,7 +188,6 @@ const typeDefs = gql`
     payment: Payment
     returnItems: [ReturnItem]
   }
-
   type ReturnItem {
     return_id: ID!
     order_id: ID!
@@ -220,14 +198,12 @@ const typeDefs = gql`
     order: Order
     art: Art
   }
-
   type UserRole {
     user_id: ID!
     role_id: ID!
     user: User
     role: Role
   }
-
   type Query {
     users: [User]
     user(id: ID!): User
@@ -240,9 +216,8 @@ const typeDefs = gql`
     getPayment(id: ID!): Payment
     userRoles: [UserRole]
     userRole(userId: ID!, roleId: ID!): UserRole
-    getAllPayments: [Payment]!
+    getAllPayments: [Payment!]!
   }
-
   type Mutation {
     createUser(input: UserInput!): User
     updateUser(id: ID!, input: UserInput!): User
@@ -257,29 +232,25 @@ const typeDefs = gql`
     updateArt(id: ID!, input: ArtInput!): Art
     deleteArt(id: ID!): Boolean
     createPayment(input: PaymentInput!): PaymentResponse!
-    updatePaymentStatus(paymentId: ID!, status: String!): PaymentResponse!
+    updatePaymentStatus(paymentIntentId: String!, status: String!): PaymentResponse!
     createPaymentIntent(amount: Int!, email: String!): PaymentIntent!
     confirmPayment(paymentIntentId: String!): Payment!
     assignRoleToUser(userId: ID!, roleId: ID!): UserRole
     removeRoleFromUser(userId: ID!, roleId: ID!): Boolean
   }
-
   input UserInput {
     Username: String!
     email: String!
     password: String!
     status: String!
   }
-
   input RoleInput {
     role_name: String!
   }
-
   input ArtistInput {
     name: String!
     bio: String
   }
-
   input ArtInput {
     artist_id: ID!
     title: String!
@@ -288,10 +259,8 @@ const typeDefs = gql`
     categoryid: ID
     catalog_id: ID
   }
-
   input PaymentInput {
     amount: Float!
-    payment_method: String
     email: String!
     fullName: String!
     address1: String!
@@ -310,11 +279,3 @@ const typeDefs = gql`
 `;
 
 module.exports = typeDefs;
-
-
-
-
-
-
-
-
