@@ -113,6 +113,8 @@ const resolvers = {
           eventDetails 
         } = input;
 
+        console.log('Creating payment with input:', input); // Debug log
+
         // Create Stripe payment intent
         const paymentIntent = await stripe.paymentIntents.create({
           amount: Math.round(amount * 100),
@@ -133,9 +135,7 @@ const resolvers = {
           }
         });
 
-        if (!paymentIntent || !paymentIntent.id) {
-          throw new Error('Failed to create Stripe payment intent');
-        }
+        console.log('Created Stripe payment intent:', paymentIntent.id); // Debug log
 
         // Create payment record in database
         const payment = new Payment({
@@ -159,19 +159,22 @@ const resolvers = {
         });
 
         const savedPayment = await payment.save();
-        console.log('Payment saved:', savedPayment);
+        console.log('Saved payment to database:', savedPayment); // Debug log
 
-        if (!savedPayment) {
-          throw new Error('Failed to save payment to database');
-        }
-
+        // Return the response with all necessary fields
         return {
           success: true,
           message: 'Payment created successfully',
           payment: {
-            ...savedPayment.toObject(),
+            id: savedPayment._id.toString(), // Explicitly include ID
+            _id: savedPayment._id.toString(), // Include both formats to be safe
+            order_id: savedPayment.order_id,
+            amount: savedPayment.amount,
+            payment_method: savedPayment.payment_method,
+            payment_status: savedPayment.payment_status,
+            email: savedPayment.email,
             clientSecret: paymentIntent.client_secret,
-            id: savedPayment._id.toString()
+            stripe_payment_intent_id: paymentIntent.id
           }
         };
       } catch (error) {
@@ -233,8 +236,7 @@ const resolvers = {
     confirmPayment: async (_, { paymentIntentId }, { stripe }) => {
       try {
         console.log('Confirming payment for intent:', paymentIntentId);
-        
-        // First find the payment in our database
+
         const payment = await Payment.findOne({ 
           stripe_payment_intent_id: paymentIntentId 
         });
@@ -244,20 +246,19 @@ const resolvers = {
           throw new Error('Payment record not found');
         }
 
-        // Then check the payment status with Stripe
         const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
         
         if (paymentIntent.status === 'succeeded') {
-          // Update payment status
           payment.payment_status = 'completed';
           payment.payment_date = new Date();
           
           const updatedPayment = await payment.save();
-          console.log('Payment updated:', updatedPayment);
+          console.log('Updated payment:', updatedPayment);
 
           return {
-            ...updatedPayment.toObject(),
-            id: updatedPayment._id.toString()
+            id: updatedPayment._id.toString(),
+            _id: updatedPayment._id.toString(),
+            ...updatedPayment.toObject()
           };
         } else {
           throw new Error(`Payment is in ${paymentIntent.status} state`);
