@@ -263,33 +263,37 @@ const resolvers = {
       try {
         console.log('Received registration input:', input);
 
-        // Format the input data to match our schema
-        const registrationData = {
-          event_id: input.event_id,
+        // Validate required fields
+        if (!input.eventName || !input.email) {
+          throw new Error('Missing required fields');
+        }
+
+        // Create registration record
+        const registration = new EventRegistration({
+          event_id: input.event_id || 1,
           event_name: input.eventName,
           event_date: input.eventDate,
           event_venue: input.eventVenue,
           event_time: input.eventTime,
           first_name: input.firstName,
-          middle_name: input.middleName || '',
+          middle_name: input.middleName,
           last_name: input.lastName,
           email: input.email,
           contact: input.contact,
           address1: input.address1,
-          address2: input.address2 || '',
+          address2: input.address2,
           city: input.city,
           state: input.state,
           zipcode: input.zipcode,
           payment_amount: input.paymentAmount || 0,
-          payment_status: input.paymentAmount > 0 ? 'pending' : 'free'
-        };
+          payment_status: input.paymentAmount > 0 ? 'pending' : 'free',
+          registration_date: new Date()
+        });
 
-        console.log('Formatted registration data:', registrationData);
+        console.log('Attempting to save registration:', registration);
 
-        const registration = new EventRegistration(registrationData);
         const savedRegistration = await registration.save();
-        
-        console.log('Saved registration:', savedRegistration);
+        console.log('Successfully saved registration:', savedRegistration);
 
         return {
           success: true,
