@@ -7,6 +7,7 @@ const User = require('./models/User');
 const Role = require('./models/Role');
 const UserRole = require('./models/UserRole');
 const Payment = require('./models/Payment');
+const EventRegistration = require('./models/EventRegistration');
 
 // Mock Stripe
 jest.mock('stripe', () => {
@@ -64,6 +65,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await Payment.deleteMany({});
+  await EventRegistration.deleteMany({});
 });
 
 describe('Payment API', () => {
@@ -210,5 +212,85 @@ describe('Payment API', () => {
 
     expect(res.data.confirmPayment.payment_status).toBe('completed');
     expect(res.data.confirmPayment.payment_date).toBeTruthy();
+  });
+});
+
+describe('Event Registration API', () => {
+  it('should create an event registration', async () => {
+    const CREATE_REGISTRATION = `
+      mutation CreateEventRegistration($input: EventRegistrationInput!) {
+        createEventRegistration(input: $input) {
+          success
+          message
+          registration {
+            registration_id
+            event_name
+            first_name
+            email
+            payment_status
+          }
+        }
+      }
+    `;
+
+    const res = await server.executeOperation({
+      query: CREATE_REGISTRATION,
+      variables: {
+        input: {
+          event_id: 1,
+          event_name: "Test Event",
+          event_date: "2024-10-25",
+          event_venue: "Test Venue",
+          event_time: "7:00 PM",
+          first_name: "John",
+          last_name: "Doe",
+          email: "test@example.com",
+          contact: "+1234567890",
+          address1: "123 Test St",
+          city: "Test City",
+          state: "TS",
+          zipcode: "12345",
+          payment_amount: 20
+        }
+      }
+    });
+
+    expect(res.data.createEventRegistration.success).toBe(true);
+    expect(res.data.createEventRegistration.registration.event_name).toBe("Test Event");
+  });
+
+  it('should get a registration by ID', async () => {
+    const registration = await EventRegistration.create({
+      event_id: 1,
+      event_name: "Test Event",
+      event_date: "2024-10-25",
+      event_venue: "Test Venue",
+      event_time: "7:00 PM",
+      first_name: "John",
+      last_name: "Doe",
+      email: "test@example.com",
+      contact: "+1234567890",
+      address1: "123 Test St",
+      city: "Test City",
+      state: "TS",
+      zipcode: "12345"
+    });
+
+    const GET_REGISTRATION = `
+      query GetEventRegistration($id: ID!) {
+        getEventRegistration(id: $id) {
+          registration_id
+          event_name
+          email
+        }
+      }
+    `;
+
+    const res = await server.executeOperation({
+      query: GET_REGISTRATION,
+      variables: { id: registration.registration_id }
+    });
+
+    expect(res.data.getEventRegistration.event_name).toBe("Test Event");
   });
 });
