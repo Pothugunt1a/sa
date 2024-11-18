@@ -190,30 +190,16 @@ async function startServer() {
     try {
       console.log('Received event registration request:', req.body);
 
+      // Create the registration
       const result = await resolvers.Mutation.createEventRegistration(null, {
-        input: {
-          event_id: parseInt(req.body.event_id),
-          eventName: req.body.eventName,
-          eventDate: req.body.eventDate,
-          eventVenue: req.body.eventVenue,
-          eventTime: req.body.eventTime,
-          firstName: req.body.firstName,
-          middleName: req.body.middleName,
-          lastName: req.body.lastName,
-          email: req.body.email,
-          contact: req.body.contact,
-          address1: req.body.address1,
-          address2: req.body.address2,
-          city: req.body.city,
-          state: req.body.state,
-          zipcode: req.body.zipcode,
-          paymentAmount: parseFloat(req.body.paymentAmount)
-        }
+        input: req.body
       });
 
       if (!result.success) {
         throw new Error(result.message);
       }
+
+      console.log('Registration created:', result.registration);
 
       res.json({
         success: true,
