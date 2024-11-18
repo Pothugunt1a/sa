@@ -345,13 +345,13 @@ const typeDefs = gql`
 
   input EventRegistrationInput {
     event_id: Int!
-    event_name: String!
-    event_date: String!
-    event_venue: String!
-    event_time: String!
-    first_name: String!
-    middle_name: String
-    last_name: String!
+    eventName: String!
+    eventDate: String!
+    eventVenue: String!
+    eventTime: String!
+    firstName: String!
+    middleName: String
+    lastName: String!
     email: String!
     contact: String!
     address1: String!
@@ -359,7 +359,7 @@ const typeDefs = gql`
     city: String!
     state: String!
     zipcode: String!
-    payment_amount: Float
+    paymentAmount: Float
   }
 `;
 
