@@ -261,25 +261,35 @@ const resolvers = {
     },
     createEventRegistration: async (_, { input }) => {
       try {
-        console.log('Received registration input:', input); // Debug log
+        console.log('Received registration input:', input);
 
-        // Validate required fields
-        if (!input.event_id || !input.event_name || !input.email) {
-          throw new Error('Missing required fields');
-        }
+        // Format the input data to match our schema
+        const registrationData = {
+          event_id: input.event_id,
+          event_name: input.eventName,
+          event_date: input.eventDate,
+          event_venue: input.eventVenue,
+          event_time: input.eventTime,
+          first_name: input.firstName,
+          middle_name: input.middleName || '',
+          last_name: input.lastName,
+          email: input.email,
+          contact: input.contact,
+          address1: input.address1,
+          address2: input.address2 || '',
+          city: input.city,
+          state: input.state,
+          zipcode: input.zipcode,
+          payment_amount: input.paymentAmount || 0,
+          payment_status: input.paymentAmount > 0 ? 'pending' : 'free'
+        };
 
-        // Create registration record
-        const registration = new EventRegistration({
-          ...input,
-          registration_id: `REG-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
-          payment_status: input.payment_amount > 0 ? 'pending' : 'free',
-          registration_date: new Date()
-        });
+        console.log('Formatted registration data:', registrationData);
 
-        console.log('Creating registration:', registration); // Debug log
-
+        const registration = new EventRegistration(registrationData);
         const savedRegistration = await registration.save();
-        console.log('Registration saved:', savedRegistration); // Debug log
+        
+        console.log('Saved registration:', savedRegistration);
 
         return {
           success: true,
