@@ -261,17 +261,30 @@ const resolvers = {
     },
     createEventRegistration: async (_, { input }) => {
       try {
+        console.log('Received registration input:', input); // Debug log
+
+        // Validate required fields
+        if (!input.event_id || !input.event_name || !input.email) {
+          throw new Error('Missing required fields');
+        }
+
+        // Create registration record
         const registration = new EventRegistration({
           ...input,
-          payment_status: input.payment_amount > 0 ? 'pending' : 'free'
+          registration_id: `REG-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+          payment_status: input.payment_amount > 0 ? 'pending' : 'free',
+          registration_date: new Date()
         });
-        
-        await registration.save();
-        
+
+        console.log('Creating registration:', registration); // Debug log
+
+        const savedRegistration = await registration.save();
+        console.log('Registration saved:', savedRegistration); // Debug log
+
         return {
           success: true,
           message: 'Event registration created successfully',
-          registration
+          registration: savedRegistration
         };
       } catch (error) {
         console.error('Error creating event registration:', error);
@@ -284,25 +297,33 @@ const resolvers = {
     },
     updateEventRegistrationPaymentStatus: async (_, { registrationId, paymentStatus }) => {
       try {
+        console.log(`Updating registration ${registrationId} to status ${paymentStatus}`); // Debug log
+
         const registration = await EventRegistration.findOneAndUpdate(
           { registration_id: registrationId },
-          { payment_status: paymentStatus },
+          { 
+            payment_status: paymentStatus,
+            updatedAt: new Date()
+          },
           { new: true }
         );
-        
+
         if (!registration) {
           throw new Error('Registration not found');
         }
-        
+
+        console.log('Updated registration:', registration); // Debug log
+
         return {
           success: true,
-          message: 'Payment status updated successfully',
+          message: 'Registration payment status updated successfully',
           registration
         };
       } catch (error) {
+        console.error('Error updating registration payment status:', error);
         return {
           success: false,
-          message: `Failed to update payment status: ${error.message}`,
+          message: `Failed to update registration status: ${error.message}`,
           registration: null
         };
       }
