@@ -186,6 +186,48 @@ async function startServer() {
     }
   });
 
+  app.post('/api/event-registration', async (req, res) => {
+    try {
+      console.log('Received event registration request:', req.body);
+
+      const result = await resolvers.Mutation.createEventRegistration(null, {
+        input: {
+          event_id: parseInt(req.body.event_id),
+          eventName: req.body.eventName,
+          eventDate: req.body.eventDate,
+          eventVenue: req.body.eventVenue,
+          eventTime: req.body.eventTime,
+          firstName: req.body.firstName,
+          middleName: req.body.middleName,
+          lastName: req.body.lastName,
+          email: req.body.email,
+          contact: req.body.contact,
+          address1: req.body.address1,
+          address2: req.body.address2,
+          city: req.body.city,
+          state: req.body.state,
+          zipcode: req.body.zipcode,
+          paymentAmount: parseFloat(req.body.paymentAmount)
+        }
+      });
+
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      res.json({
+        success: true,
+        registration: result.registration
+      });
+    } catch (error) {
+      console.error('Error processing event registration:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  });
+
   const PORT = process.env.PORT || 4000;
   app.listen(PORT, () => {
     console.log(`
