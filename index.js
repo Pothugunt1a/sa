@@ -124,6 +124,68 @@ async function startServer() {
     }
   });
 
+  app.post('/event-registration', async (req, res) => {
+    try {
+      console.log('Received event registration request:', req.body);
+
+      const result = await resolvers.Mutation.createEventRegistration(
+        null,
+        { input: req.body },
+        { req }
+      );
+
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      console.log('Event registration created:', result.registration);
+
+      // If it's a paid event, create a payment intent
+      if (result.registration.payment_amount > 0) {
+        const paymentResult = await resolvers.Mutation.createPayment(
+          null,
+          {
+            input: {
+              amount: result.registration.payment_amount,
+              email: result.registration.email,
+              fullName: `${result.registration.first_name} ${result.registration.last_name}`,
+              address1: result.registration.address1,
+              address2: result.registration.address2,
+              city: result.registration.city,
+              state: result.registration.state,
+              isEvent: true,
+              eventDetails: {
+                eventName: result.registration.event_name,
+                eventDate: result.registration.event_date,
+                eventVenue: result.registration.event_venue,
+                eventTime: result.registration.event_time
+              }
+            }
+          },
+          { stripe }
+        );
+
+        res.json({
+          success: true,
+          registration: result.registration,
+          payment: paymentResult.payment,
+          clientSecret: paymentResult.clientSecret
+        });
+      } else {
+        res.json({
+          success: true,
+          registration: result.registration
+        });
+      }
+    } catch (error) {
+      console.error('Error processing event registration:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  });
+
   const PORT = process.env.PORT || 4000;
   app.listen(PORT, () => {
     console.log(`
