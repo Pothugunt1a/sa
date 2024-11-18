@@ -4,6 +4,7 @@ const Artist = require('../models/Artist');
 const Art = require('../models/Art');
 const UserRole = require('../models/UserRole');
 const Payment = require('../models/Payment');
+const EventRegistration = require('../models/EventRegistration');
 // Import other models as needed
 const resolvers = {
   Query: {
@@ -40,6 +41,27 @@ const resolvers = {
       } catch (error) {
         console.error('Error fetching payments:', error);
         throw new Error('Failed to fetch payments');
+      }
+    },
+    getEventRegistration: async (_, { id }) => {
+      try {
+        return await EventRegistration.findOne({ registration_id: id });
+      } catch (error) {
+        throw new Error(`Failed to fetch registration: ${error.message}`);
+      }
+    },
+    getAllEventRegistrations: async () => {
+      try {
+        return await EventRegistration.find();
+      } catch (error) {
+        throw new Error(`Failed to fetch registrations: ${error.message}`);
+      }
+    },
+    getEventRegistrationsByEmail: async (_, { email }) => {
+      try {
+        return await EventRegistration.find({ email });
+      } catch (error) {
+        throw new Error(`Failed to fetch registrations: ${error.message}`);
       }
     }
     // Add more queries
@@ -237,6 +259,54 @@ const resolvers = {
         throw new Error(`Failed to confirm payment: ${error.message}`);
       }
     },
+    createEventRegistration: async (_, { input }) => {
+      try {
+        const registration = new EventRegistration({
+          ...input,
+          payment_status: input.payment_amount > 0 ? 'pending' : 'free'
+        });
+        
+        await registration.save();
+        
+        return {
+          success: true,
+          message: 'Event registration created successfully',
+          registration
+        };
+      } catch (error) {
+        console.error('Error creating event registration:', error);
+        return {
+          success: false,
+          message: `Failed to create registration: ${error.message}`,
+          registration: null
+        };
+      }
+    },
+    updateEventRegistrationPaymentStatus: async (_, { registrationId, paymentStatus }) => {
+      try {
+        const registration = await EventRegistration.findOneAndUpdate(
+          { registration_id: registrationId },
+          { payment_status: paymentStatus },
+          { new: true }
+        );
+        
+        if (!registration) {
+          throw new Error('Registration not found');
+        }
+        
+        return {
+          success: true,
+          message: 'Payment status updated successfully',
+          registration
+        };
+      } catch (error) {
+        return {
+          success: false,
+          message: `Failed to update payment status: ${error.message}`,
+          registration: null
+        };
+      }
+    }
     // Add more mutations
   },
   User: {
