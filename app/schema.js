@@ -204,6 +204,32 @@ const typeDefs = gql`
     user: User
     role: Role
   }
+  type EventRegistration {
+    registration_id: ID!
+    event_id: Int!
+    event_name: String!
+    event_date: String!
+    event_venue: String!
+    event_time: String!
+    first_name: String!
+    middle_name: String
+    last_name: String!
+    email: String!
+    contact: String!
+    address1: String!
+    address2: String
+    city: String!
+    state: String!
+    zipcode: String!
+    registration_date: String!
+    payment_status: String
+    payment_amount: Float
+  }
+  type EventRegistrationResponse {
+    success: Boolean!
+    message: String!
+    registration: EventRegistration
+  }
   type Query {
     users: [User]
     user(id: ID!): User
@@ -217,6 +243,9 @@ const typeDefs = gql`
     userRoles: [UserRole]
     userRole(userId: ID!, roleId: ID!): UserRole
     getAllPayments: [Payment!]!
+    getEventRegistration(id: ID!): EventRegistration
+    getAllEventRegistrations: [EventRegistration]!
+    getEventRegistrationsByEmail(email: String!): [EventRegistration]!
   }
   type Mutation {
     createUser(input: UserInput!): User
@@ -237,6 +266,8 @@ const typeDefs = gql`
     confirmPayment(paymentIntentId: String!): Payment!
     assignRoleToUser(userId: ID!, roleId: ID!): UserRole
     removeRoleFromUser(userId: ID!, roleId: ID!): Boolean
+    createEventRegistration(input: EventRegistrationInput!): EventRegistrationResponse!
+    updateEventRegistrationPaymentStatus(registrationId: ID!, paymentStatus: String!): EventRegistrationResponse!
   }
   input UserInput {
     Username: String!
@@ -275,6 +306,31 @@ const typeDefs = gql`
     eventDate: String
     eventVenue: String
     eventTime: String
+  }
+  input EventRegistrationInput {
+    event_id: Int!
+    event_name: String!
+    event_date: String!
+    event_venue: String!
+    event_time: String!
+    first_name: String!
+    middle_name: String
+    last_name: String!
+    email: String!
+    contact: String!
+    address1: String!
+    address2: String
+    city: String!
+    state: String!
+    zipcode: String!
+    payment_amount: Float
+  }
+};
+type UserRole {
+    user_id: ID!
+    role_id: ID!
+    user: User
+    role: Role
   }
 `;
 
