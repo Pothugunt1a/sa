@@ -1,18 +1,52 @@
 const mongoose = require('mongoose');
-require('dotenv').config();
 
 const connectDB = async () => {
   try {
-    //await mongoose.connect(process.env.MONGODB_URI, {
-    //  useNewUrlParser: true,
-    //  useUnifiedTopology: true,
-    //});
-    await mongoose.connect(process.env.MONGODB_URI);
-    console.log('MongoDB Atlas connected successfully');
+    const MONGODB_URI = process.env.MONGODB_URI;
+    
+    if (!MONGODB_URI) {
+      throw new Error('MongoDB URI is not defined in environment variables');
+    }
+
+    console.log('Attempting to connect to MongoDB...');
+
+    // Force the connection to use 'shashikala' database
+    const conn = await mongoose.connect(MONGODB_URI.replace('/test?', '/shashikala?'), {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      dbName: 'shashikala' // Explicitly set database name
+    });
+
+    console.log(`MongoDB Connected to database: ${conn.connection.db.databaseName}`);
+    console.log(`MongoDB Host: ${conn.connection.host}`);
+
+    // Test the connection
+    const collections = await mongoose.connection.db.listCollections().toArray();
+    console.log('Available collections:', collections.map(c => c.name));
+
+    return conn;
   } catch (error) {
-    console.error('MongoDB Atlas connection error:', error);
+    console.error('MongoDB connection error:', error);
     process.exit(1);
   }
 };
+
+// Add connection error handlers
+mongoose.connection.on('error', err => {
+  console.error('MongoDB connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('MongoDB disconnected');
+});
+
+mongoose.connection.on('connected', () => {
+  console.log(`MongoDB connected to database: ${mongoose.connection.db.databaseName}`);
+});
+
+process.on('SIGINT', async () => {
+  await mongoose.connection.close();
+  process.exit(0);
+});
 
 module.exports = connectDB;
