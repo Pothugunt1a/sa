@@ -1,4 +1,5 @@
 const { gql } = require('apollo-server-express');
+
 const typeDefs = gql`
   type User {
     user_id: ID!
@@ -14,17 +15,20 @@ const typeDefs = gql`
     reviews: [Review]
     orders: [Order]
   }
+
   type Role {
     role_id: ID!
     role_name: String!
     users: [User]
   }
+
   type Artist {
     artist_id: ID!
     name: String!
     bio: String
     arts: [Art]
   }
+
   type Art {
     art_id: ID!
     artist_id: ID!
@@ -43,11 +47,13 @@ const typeDefs = gql`
     orderItems: [OrderItem]
     returnItems: [ReturnItem]
   }
+
   type ArtImages {
     image_id: ID!
     art_id: ID!
     image_url: String!
   }
+
   type Wishlist {
     wishlist_id: ID!
     user_id: ID!
@@ -56,6 +62,7 @@ const typeDefs = gql`
     user: User
     art: Art
   }
+
   type ShoppingCart {
     cart_id: ID!
     user_id: ID!
@@ -64,6 +71,7 @@ const typeDefs = gql`
     user: User
     cartItems: [CartItem]
   }
+
   type CartItem {
     cart_item_id: ID!
     cart_id: ID!
@@ -72,6 +80,7 @@ const typeDefs = gql`
     shoppingCart: ShoppingCart
     art: Art
   }
+
   type SubscriptionPlan {
     plan_id: ID!
     plan_name: String!
@@ -79,6 +88,7 @@ const typeDefs = gql`
     features: String
     userSubscriptions: [UserSubscription]
   }
+
   type UserSubscription {
     subscription_id: ID!
     user_id: ID!
@@ -88,6 +98,7 @@ const typeDefs = gql`
     user: User
     subscriptionPlan: SubscriptionPlan
   }
+
   type Store {
     store_id: ID!
     store_name: String!
@@ -95,6 +106,7 @@ const typeDefs = gql`
     description: String
     storeInventories: [StoreInventory]
   }
+
   type StoreInventory {
     store_inventory_id: ID!
     store_id: ID!
@@ -104,6 +116,7 @@ const typeDefs = gql`
     store: Store
     art: Art
   }
+
   type Catalog {
     catalog_id: ID!
     name: String!
@@ -112,33 +125,38 @@ const typeDefs = gql`
     artist: Artist
     arts: [Art]
   }
+
   type Payment {
     _id: ID!
-    stripe_payment_intent_id: String!
+    payment_id: String!
     order_id: String!
     amount: Float!
     payment_method: String!
     payment_status: String!
     email: String!
-    full_name: String
-    address1: String
+    full_name: String!
+    address1: String!
     address2: String
-    city: String
-    state: String
-    transaction_id: String
-    payment_date: String
-    is_donation: Boolean
+    city: String!
+    state: String!
+    transaction_id: String!
+    is_donation: Boolean!
     event_name: String
     event_date: String
     event_venue: String
     event_time: String
+    payment_date: String
+    stripe_payment_intent_id: String!
+    clientSecret: String
   }
+
   type PaymentResponse {
     success: Boolean!
     message: String!
-    payment: Payment!
+    payment: Payment
     clientSecret: String
   }
+
   type PaymentIntent {
     clientSecret: String!
   }
@@ -204,6 +222,7 @@ const typeDefs = gql`
     user: User
     role: Role
   }
+
   type EventRegistration {
     registration_id: ID!
     event_id: Int!
@@ -225,11 +244,20 @@ const typeDefs = gql`
     payment_status: String
     payment_amount: Float
   }
+
   type EventRegistrationResponse {
     success: Boolean!
     message: String!
     registration: EventRegistration
   }
+
+  type UserRole {
+    user_id: ID!
+    role_id: ID!
+    user: User
+    role: Role
+  }
+
   type Query {
     users: [User]
     user(id: ID!): User
@@ -239,14 +267,15 @@ const typeDefs = gql`
     artist(id: ID!): Artist
     arts: [Art]
     art(id: ID!): Art
-    getPayment(id: ID!): Payment
     userRoles: [UserRole]
     userRole(userId: ID!, roleId: ID!): UserRole
-    getAllPayments: [Payment!]!
+    getPayment(id: ID!): Payment
+    getAllPayments: [Payment]!
     getEventRegistration(id: ID!): EventRegistration
     getAllEventRegistrations: [EventRegistration]!
     getEventRegistrationsByEmail(email: String!): [EventRegistration]!
   }
+
   type Mutation {
     createUser(input: UserInput!): User
     updateUser(id: ID!, input: UserInput!): User
@@ -261,7 +290,7 @@ const typeDefs = gql`
     updateArt(id: ID!, input: ArtInput!): Art
     deleteArt(id: ID!): Boolean
     createPayment(input: PaymentInput!): PaymentResponse!
-    updatePaymentStatus(paymentIntentId: String!, status: String!): PaymentResponse!
+    updatePaymentStatus(paymentId: ID!, status: String!): PaymentResponse!
     createPaymentIntent(amount: Int!, email: String!): PaymentIntent!
     confirmPayment(paymentIntentId: String!): Payment!
     assignRoleToUser(userId: ID!, roleId: ID!): UserRole
@@ -269,19 +298,23 @@ const typeDefs = gql`
     createEventRegistration(input: EventRegistrationInput!): EventRegistrationResponse!
     updateEventRegistrationPaymentStatus(registrationId: ID!, paymentStatus: String!): EventRegistrationResponse!
   }
+
   input UserInput {
     Username: String!
     email: String!
     password: String!
     status: String!
   }
+
   input RoleInput {
     role_name: String!
   }
+
   input ArtistInput {
     name: String!
     bio: String
   }
+
   input ArtInput {
     artist_id: ID!
     title: String!
@@ -290,6 +323,7 @@ const typeDefs = gql`
     categoryid: ID
     catalog_id: ID
   }
+
   input PaymentInput {
     amount: Float!
     email: String!
@@ -301,12 +335,14 @@ const typeDefs = gql`
     isEvent: Boolean!
     eventDetails: EventDetailsInput
   }
+
   input EventDetailsInput {
     eventName: String
     eventDate: String
     eventVenue: String
     eventTime: String
   }
+
   input EventRegistrationInput {
     event_id: Int!
     event_name: String!
@@ -324,13 +360,6 @@ const typeDefs = gql`
     state: String!
     zipcode: String!
     payment_amount: Float
-  }
-};
-type UserRole {
-    user_id: ID!
-    role_id: ID!
-    user: User
-    role: Role
   }
 `;
 
