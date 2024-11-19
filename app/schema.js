@@ -243,12 +243,14 @@ const typeDefs = gql`
     registration_date: String!
     payment_status: String
     payment_amount: Float
+    payment_id: String
   }
 
   type EventRegistrationResponse {
     success: Boolean!
     message: String!
     registration: EventRegistration
+    paymentIntent: PaymentIntent
   }
 
   type UserRole {
@@ -275,6 +277,8 @@ const typeDefs = gql`
     getAllEventRegistrations: [EventRegistration]!
     getEventRegistrationsByEmail(email: String!): [EventRegistration]!
     getPaymentByRegistrationId(registrationId: ID!): Payment
+    getRegistrationsByEmail(email: String!): [EventRegistration]!
+    getRegistrationDetails(registrationId: ID!): EventRegistrationDetails!
   }
 
   type Mutation {
@@ -298,6 +302,7 @@ const typeDefs = gql`
     removeRoleFromUser(userId: ID!, roleId: ID!): Boolean
     createEventRegistration(input: EventRegistrationInput!): EventRegistrationResponse!
     updateEventRegistrationPaymentStatus(registrationId: ID!, paymentStatus: String!): EventRegistrationResponse!
+    registerForEvent(input: EventRegistrationInput!): EventRegistrationResponse!
   }
 
   input UserInput {
@@ -360,7 +365,12 @@ const typeDefs = gql`
     city: String!
     state: String!
     zipcode: String!
-    paymentAmount: Float
+    paymentAmount: Float!
+  }
+
+  type EventRegistrationDetails {
+    registration: EventRegistration!
+    payment: Payment
   }
 `;
 
