@@ -73,9 +73,49 @@ const EventRegistrationSchema = new mongoose.Schema({
   payment_amount: {
     type: Number,
     default: 0
+  },
+  payment_id: {
+    type: String,
+    ref: 'Payment'
   }
 }, {
   timestamps: true
+});
+
+// Add index for better query performance
+EventRegistrationSchema.index({ registration_id: 1 }, { unique: true });
+EventRegistrationSchema.index({ email: 1 });
+
+// Pre-save middleware to ensure registration_id is set
+EventRegistrationSchema.pre('save', function(next) {
+  if (!this.registration_id) {
+    this.registration_id = 'REG-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+  }
+  next();
+});
+
+// Add method to find registration by payment ID
+EventRegistrationSchema.statics.findByPaymentId = function(paymentId) {
+  return this.findOne({ payment_id: paymentId });
+};
+
+// Add method to update payment status
+EventRegistrationSchema.methods.updatePaymentStatus = async function(status, paymentId) {
+  this.payment_status = status;
+  if (paymentId) {
+    this.payment_id = paymentId;
+  }
+  return this.save();
+};
+
+// Add logging for debugging
+EventRegistrationSchema.post('save', function(doc) {
+  console.log('Registration saved:', {
+    registration_id: doc.registration_id,
+    event_name: doc.event_name,
+    payment_status: doc.payment_status,
+    payment_id: doc.payment_id
+  });
 });
 
 module.exports = mongoose.model('EventRegistration', EventRegistrationSchema); 
