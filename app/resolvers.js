@@ -6,7 +6,6 @@ const UserRole = require('../models/UserRole');
 const Payment = require('../models/Payment');
 const EventRegistration = require('../models/EventRegistration');
 // Import other models as needed
-
 const resolvers = {
   Query: {
     users: async () => await User.find(),
@@ -198,7 +197,18 @@ const resolvers = {
         });
 
         await payment.save();
-        console.log('Payment saved with registration ID:', payment);
+        console.log('Payment saved:', payment);
+
+        // Update registration with payment ID
+        if (input.registrationId) {
+          const registration = await EventRegistration.findOne({ 
+            registration_id: input.registrationId 
+          });
+          if (registration) {
+            await registration.updatePaymentStatus('pending', payment.payment_id);
+            console.log('Registration updated with payment:', registration);
+          }
+        }
 
         return {
           success: true,
