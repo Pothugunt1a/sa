@@ -279,6 +279,7 @@ const typeDefs = gql`
     getPaymentByRegistrationId(registrationId: ID!): Payment
     getRegistrationsByEmail(email: String!): [EventRegistration]!
     getRegistrationDetails(registrationId: ID!): EventRegistrationDetails!
+    getRegistrationWithPayment(registrationId: ID!): RegistrationWithPayment!
   }
 
   type Mutation {
@@ -371,6 +372,12 @@ const typeDefs = gql`
   type EventRegistrationDetails {
     registration: EventRegistration!
     payment: Payment
+  }
+
+  type RegistrationWithPayment {
+    registration: EventRegistration!
+    payment: Payment
+    isFreeEvent: Boolean!
   }
 `;
 
