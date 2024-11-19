@@ -6,6 +6,7 @@ const UserRole = require('../models/UserRole');
 const Payment = require('../models/Payment');
 const EventRegistration = require('../models/EventRegistration');
 // Import other models as needed
+
 const resolvers = {
   Query: {
     users: async () => await User.find(),
