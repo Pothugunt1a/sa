@@ -80,6 +80,40 @@ const resolvers = {
         console.error('Error fetching payment by registration ID:', error);
         throw new Error(`Failed to fetch payment: ${error.message}`);
       }
+    },
+    getRegistrationsByEmail: async (_, { email }) => {
+      try {
+        const registrations = await EventRegistration.find({ email });
+        console.log(`Found ${registrations.length} registrations for email: ${email}`);
+        return registrations;
+      } catch (error) {
+        console.error('Error fetching registrations by email:', error);
+        throw new Error(`Failed to fetch registrations: ${error.message}`);
+      }
+    },
+    getRegistrationDetails: async (_, { registrationId }) => {
+      try {
+        const registration = await EventRegistration.findOne({ 
+          registration_id: registrationId 
+        });
+        
+        if (!registration) {
+          throw new Error('Registration not found');
+        }
+
+        let payment = null;
+        if (registration.payment_id) {
+          payment = await Payment.findOne({ payment_id: registration.payment_id });
+        }
+
+        return {
+          registration,
+          payment
+        };
+      } catch (error) {
+        console.error('Error fetching registration details:', error);
+        throw new Error(`Failed to fetch registration details: ${error.message}`);
+      }
     }
     // Add more queries
   },
@@ -367,6 +401,96 @@ const resolvers = {
         return {
           success: false,
           message: `Failed to update registration status: ${error.message}`,
+          registration: null
+        };
+      }
+    },
+    registerForEvent: async (_, { input }, { stripe }) => {
+      try {
+        console.log('Processing event registration:', input);
+
+        // 1. Create event registration
+        const registration = new EventRegistration({
+          event_id: input.event_id,
+          event_name: input.eventName,
+          event_date: input.eventDate,
+          event_venue: input.eventVenue,
+          event_time: input.eventTime,
+          first_name: input.firstName,
+          middle_name: input.middleName || '',
+          last_name: input.lastName,
+          email: input.email,
+          contact: input.contact,
+          address1: input.address1,
+          address2: input.address2 || '',
+          city: input.city,
+          state: input.state,
+          zipcode: input.zipcode,
+          payment_amount: input.paymentAmount,
+          payment_status: input.paymentAmount > 0 ? 'pending' : 'free'
+        });
+
+        const savedRegistration = await registration.save();
+        console.log('Registration saved:', savedRegistration);
+
+        // 2. For paid events, create payment
+        if (input.paymentAmount > 0) {
+          const paymentIntent = await stripe.paymentIntents.create({
+            amount: Math.round(input.paymentAmount * 100),
+            currency: 'usd',
+            metadata: {
+              registration_id: savedRegistration.registration_id,
+              event_name: input.eventName,
+              email: input.email
+            }
+          });
+
+          const payment = new Payment({
+            registration_id: savedRegistration.registration_id,
+            stripe_payment_intent_id: paymentIntent.id,
+            order_id: `ORDER-${Date.now()}`,
+            amount: input.paymentAmount,
+            payment_method: 'card',
+            payment_status: 'pending',
+            email: input.email,
+            full_name: `${input.firstName} ${input.lastName}`,
+            address1: input.address1,
+            address2: input.address2,
+            city: input.city,
+            state: input.state,
+            event_name: input.eventName,
+            event_date: input.eventDate,
+            event_venue: input.eventVenue,
+            event_time: input.eventTime
+          });
+
+          const savedPayment = await payment.save();
+          console.log('Payment record created:', savedPayment);
+
+          // Update registration with payment ID
+          savedRegistration.payment_id = savedPayment.payment_id;
+          await savedRegistration.save();
+
+          return {
+            success: true,
+            message: 'Registration created with payment',
+            registration: savedRegistration,
+            paymentIntent: {
+              clientSecret: paymentIntent.client_secret
+            }
+          };
+        }
+
+        return {
+          success: true,
+          message: 'Registration created successfully',
+          registration: savedRegistration
+        };
+      } catch (error) {
+        console.error('Error in registerForEvent:', error);
+        return {
+          success: false,
+          message: error.message,
           registration: null
         };
       }
