@@ -274,6 +274,7 @@ const typeDefs = gql`
     getEventRegistration(id: ID!): EventRegistration
     getAllEventRegistrations: [EventRegistration]!
     getEventRegistrationsByEmail(email: String!): [EventRegistration]!
+    getPaymentByRegistrationId(registrationId: ID!): Payment
   }
 
   type Mutation {
