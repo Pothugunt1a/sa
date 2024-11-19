@@ -63,6 +63,23 @@ const resolvers = {
       } catch (error) {
         throw new Error(`Failed to fetch registrations: ${error.message}`);
       }
+    },
+    getPaymentByRegistrationId: async (_, { registrationId }) => {
+      try {
+        console.log('Looking for payment with registration ID:', registrationId);
+        const payment = await Payment.findByRegistrationId(registrationId);
+        
+        if (!payment) {
+          console.log(`No payment found for registration ${registrationId}`);
+          return null;
+        }
+        
+        console.log('Found payment:', payment);
+        return payment;
+      } catch (error) {
+        console.error('Error fetching payment by registration ID:', error);
+        throw new Error(`Failed to fetch payment: ${error.message}`);
+      }
     }
     // Add more queries
   },
@@ -175,11 +192,12 @@ const resolvers = {
           event_name: eventDetails?.eventName,
           event_date: eventDetails?.eventDate,
           event_venue: eventDetails?.eventVenue,
-          event_time: eventDetails?.eventTime
+          event_time: eventDetails?.eventTime,
+          registration_id: input.registrationId
         });
 
         await payment.save();
-        console.log('Payment saved:', payment);
+        console.log('Payment saved with registration ID:', payment);
 
         return {
           success: true,
