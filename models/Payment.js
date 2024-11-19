@@ -1,10 +1,15 @@
 const mongoose = require('mongoose');
+
 const PaymentSchema = new mongoose.Schema({
   payment_id: {
     type: String,
     required: true,
     unique: true,
     default: () => 'PAY-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9).toUpperCase()
+  },
+  registration_id: {
+    type: String,
+    ref: 'EventRegistration'
   },
   stripe_payment_intent_id: {
     type: String,
@@ -50,7 +55,17 @@ const PaymentSchema = new mongoose.Schema({
   event_date: String,
   event_venue: String,
   event_time: String
+}, {
+  timestamps: true
 });
+
+// Add index for registration_id
+PaymentSchema.index({ registration_id: 1 });
+
+// Add method to find payment by registration ID
+PaymentSchema.statics.findByRegistrationId = function(registrationId) {
+  return this.findOne({ registration_id: registrationId });
+};
 
 // Add a pre-save hook to ensure payment_id is never null
 PaymentSchema.pre('save', function(next) {
