@@ -118,4 +118,18 @@ EventRegistrationSchema.post('save', function(doc) {
   });
 });
 
+// Add method to link payment
+EventRegistrationSchema.methods.linkPayment = async function(paymentId, status) {
+  this.payment_id = paymentId;
+  this.payment_status = status || 'pending';
+  return this.save();
+};
+
+// Add method to handle free event
+EventRegistrationSchema.methods.markAsFree = async function() {
+  this.payment_status = 'free';
+  this.payment_amount = 0;
+  return this.save();
+};
+
 module.exports = mongoose.model('EventRegistration', EventRegistrationSchema); 
