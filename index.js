@@ -29,8 +29,7 @@ async function startServer() {
       ],
       credentials: true,
       methods: ['GET', 'POST', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
-      exposedHeaders: ['Content-Length', 'X-Requested-With']
+      allowedHeaders: ['Content-Type', 'Authorization']
     }));
 
     console.log('Initializing MongoDB connection...');
@@ -211,35 +210,26 @@ async function startServer() {
       try {
         console.log('Received event registration request:', req.body);
 
-        // Add CORS headers explicitly for this endpoint
-        res.header('Access-Control-Allow-Origin', 'https://shashikala-foundation.netlify.app');
-        res.header('Access-Control-Allow-Credentials', true);
-
-        // Extract data from the form submission
-        const registrationData = {
-          event_id: parseInt(req.body.eventId || 1),
-          eventName: req.body.eventName,
-          eventDate: req.body.eventDate,
-          eventVenue: req.body.eventVenue,
-          eventTime: req.body.eventTime,
-          firstName: req.body.firstName,
-          middleName: req.body.middleName,
-          lastName: req.body.lastName,
-          email: req.body.email,
-          contact: req.body.contact,
-          address1: req.body.address1,
-          address2: req.body.address2,
-          city: req.body.city,
-          state: req.body.state,
-          zipcode: req.body.zipcode,
-          paymentAmount: parseFloat(req.body.paymentAmount || 0)
-        };
-
-        console.log('Formatted registration data:', registrationData);
-
-        // Create the registration using the resolver
+        // Create the registration
         const result = await resolvers.Mutation.registerForEvent(null, {
-          input: registrationData
+          input: {
+            event_id: parseInt(req.body.eventId || 1),
+            eventName: req.body.eventName,
+            eventDate: req.body.eventDate,
+            eventVenue: req.body.eventVenue,
+            eventTime: req.body.eventTime,
+            firstName: req.body.firstName,
+            middleName: req.body.middleName,
+            lastName: req.body.lastName,
+            email: req.body.email,
+            contact: req.body.contact,
+            address1: req.body.address1,
+            address2: req.body.address2,
+            city: req.body.city,
+            state: req.body.state,
+            zipcode: req.body.zipcode,
+            paymentAmount: parseFloat(req.body.paymentAmount || 0)
+          }
         }, { stripe });
 
         if (!result.success) {
@@ -248,12 +238,33 @@ async function startServer() {
 
         console.log('Registration created:', result.registration);
 
-        // Return appropriate response based on payment requirement
-        if (registrationData.paymentAmount > 0) {
+        // For paid events, create payment intent
+        if (result.registration.payment_amount > 0) {
+          const paymentResult = await resolvers.Mutation.createPayment(null, {
+            input: {
+              amount: result.registration.payment_amount,
+              email: result.registration.email,
+              fullName: `${result.registration.first_name} ${result.registration.last_name}`,
+              address1: result.registration.address1,
+              address2: result.registration.address2,
+              city: result.registration.city,
+              state: result.registration.state,
+              isEvent: true,
+              eventDetails: {
+                eventName: result.registration.event_name,
+                eventDate: result.registration.event_date,
+                eventVenue: result.registration.event_venue,
+                eventTime: result.registration.event_time
+              },
+              registrationId: result.registration.registration_id
+            }
+          }, { stripe });
+
           res.json({
             success: true,
             registration: result.registration,
-            paymentIntent: result.paymentIntent
+            payment: paymentResult.payment,
+            clientSecret: paymentResult.clientSecret
           });
         } else {
           res.json({
@@ -265,7 +276,7 @@ async function startServer() {
         console.error('Error processing event registration:', error);
         res.status(500).json({
           success: false,
-          message: error.message || 'Failed to process registration'
+          message: error.message
         });
       }
     });
@@ -307,16 +318,6 @@ async function startServer() {
           message: error.message
         });
       }
-    });
-
-    // Add error handling middleware
-    app.use((err, req, res, next) => {
-      console.error('Server error:', err);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-        error: err.message
-      });
     });
 
     const PORT = process.env.PORT || 4000;
