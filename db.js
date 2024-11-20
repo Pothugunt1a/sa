@@ -10,8 +10,7 @@ const connectDB = async () => {
 
     console.log('Attempting to connect to MongoDB...');
 
-    // Force the connection to use 'shashikala' database
-    const conn = await mongoose.connect(MONGODB_URI.replace('/test?', '/shashikala?'), {
+    const conn = await mongoose.connect(MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
       dbName: 'shashikala' // Explicitly set database name
@@ -20,33 +19,11 @@ const connectDB = async () => {
     console.log(`MongoDB Connected to database: ${conn.connection.db.databaseName}`);
     console.log(`MongoDB Host: ${conn.connection.host}`);
 
-    // Test the connection
-    const collections = await mongoose.connection.db.listCollections().toArray();
-    console.log('Available collections:', collections.map(c => c.name));
-
     return conn;
   } catch (error) {
     console.error('MongoDB connection error:', error);
-    process.exit(1);
+    throw error;
   }
 };
-
-// Add connection error handlers
-mongoose.connection.on('error', err => {
-  console.error('MongoDB connection error:', err);
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.log('MongoDB disconnected');
-});
-
-mongoose.connection.on('connected', () => {
-  console.log(`MongoDB connected to database: ${mongoose.connection.db.databaseName}`);
-});
-
-process.on('SIGINT', async () => {
-  await mongoose.connection.close();
-  process.exit(0);
-});
 
 module.exports = connectDB;
