@@ -29,7 +29,8 @@ async function startServer() {
       ],
       credentials: true,
       methods: ['GET', 'POST', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization']
+      allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
+      exposedHeaders: ['Content-Length', 'X-Requested-With']
     }));
 
     console.log('Initializing MongoDB connection...');
@@ -210,7 +211,11 @@ async function startServer() {
       try {
         console.log('Received event registration request:', req.body);
 
-        // Extract data from the existing form submission
+        // Add CORS headers explicitly for this endpoint
+        res.header('Access-Control-Allow-Origin', 'https://shashikala-foundation.netlify.app');
+        res.header('Access-Control-Allow-Credentials', true);
+
+        // Extract data from the form submission
         const registrationData = {
           event_id: parseInt(req.body.eventId || 1),
           eventName: req.body.eventName,
@@ -260,7 +265,7 @@ async function startServer() {
         console.error('Error processing event registration:', error);
         res.status(500).json({
           success: false,
-          message: error.message
+          message: error.message || 'Failed to process registration'
         });
       }
     });
@@ -302,6 +307,16 @@ async function startServer() {
           message: error.message
         });
       }
+    });
+
+    // Add error handling middleware
+    app.use((err, req, res, next) => {
+      console.error('Server error:', err);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: err.message
+      });
     });
 
     const PORT = process.env.PORT || 4000;
