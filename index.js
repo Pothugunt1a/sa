@@ -210,10 +210,32 @@ async function startServer() {
       try {
         console.log('Received event registration request:', req.body);
 
-        // Create the registration
-        const result = await resolvers.Mutation.createEventRegistration(null, {
-          input: req.body
-        });
+        // Extract data from the existing form submission
+        const registrationData = {
+          event_id: parseInt(req.body.eventId || 1),
+          eventName: req.body.eventName,
+          eventDate: req.body.eventDate,
+          eventVenue: req.body.eventVenue,
+          eventTime: req.body.eventTime,
+          firstName: req.body.firstName,
+          middleName: req.body.middleName,
+          lastName: req.body.lastName,
+          email: req.body.email,
+          contact: req.body.contact,
+          address1: req.body.address1,
+          address2: req.body.address2,
+          city: req.body.city,
+          state: req.body.state,
+          zipcode: req.body.zipcode,
+          paymentAmount: parseFloat(req.body.paymentAmount || 0)
+        };
+
+        console.log('Formatted registration data:', registrationData);
+
+        // Create the registration using the resolver
+        const result = await resolvers.Mutation.registerForEvent(null, {
+          input: registrationData
+        }, { stripe });
 
         if (!result.success) {
           throw new Error(result.message);
@@ -221,12 +243,60 @@ async function startServer() {
 
         console.log('Registration created:', result.registration);
 
-        res.json({
-          success: true,
-          registration: result.registration
-        });
+        // Return appropriate response based on payment requirement
+        if (registrationData.paymentAmount > 0) {
+          res.json({
+            success: true,
+            registration: result.registration,
+            paymentIntent: result.paymentIntent
+          });
+        } else {
+          res.json({
+            success: true,
+            registration: result.registration
+          });
+        }
       } catch (error) {
         console.error('Error processing event registration:', error);
+        res.status(500).json({
+          success: false,
+          message: error.message
+        });
+      }
+    });
+
+    app.post('/test-registration', async (req, res) => {
+      try {
+        const testData = {
+          event_id: 1,
+          eventName: "Diwali Art Festival 2024",
+          eventDate: "October 25, 2024",
+          eventVenue: "Atlanta, GA",
+          eventTime: "7:00 PM EST",
+          firstName: "Test",
+          lastName: "User",
+          email: "test@example.com",
+          contact: "1234567890",
+          address1: "123 Test St",
+          city: "Atlanta",
+          state: "GA",
+          zipcode: "30303",
+          paymentAmount: 20
+        };
+
+        const result = await resolvers.Mutation.createEventRegistration(null, {
+          input: testData
+        });
+
+        console.log('Test registration result:', result);
+
+        res.json({
+          success: true,
+          message: 'Test registration created',
+          data: result
+        });
+      } catch (error) {
+        console.error('Test registration failed:', error);
         res.status(500).json({
           success: false,
           message: error.message
