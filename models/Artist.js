@@ -1,13 +1,9 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const AutoIncrement = require('mongoose-sequence')(mongoose);
 
 const ArtistSchema = new mongoose.Schema({
-    artist_id: {
-        type: Number,
-        required: true,
-        unique: true
-    },
     firstName: {
         type: String,
         required: true,
@@ -37,6 +33,9 @@ const ArtistSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+// Add auto-incrementing artist_id
+ArtistSchema.plugin(AutoIncrement, { inc_field: 'artist_id' });
 
 // Hash password before saving
 ArtistSchema.pre('save', async function(next) {
