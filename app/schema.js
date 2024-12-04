@@ -260,6 +260,18 @@ const typeDefs = gql`
     role: Role
   }
 
+  type AuthResponse {
+    success: Boolean!
+    message: String!
+    token: String
+    artist: Artist
+  }
+
+  type PasswordResetResponse {
+    success: Boolean!
+    message: String!
+  }
+
   type Query {
     users: [User]
     user(id: ID!): User
@@ -304,6 +316,10 @@ const typeDefs = gql`
     createEventRegistration(input: EventRegistrationInput!): EventRegistrationResponse!
     updateEventRegistrationPaymentStatus(registrationId: ID!, paymentStatus: String!): EventRegistrationResponse!
     registerForEvent(input: EventRegistrationInput!): EventRegistrationResponse!
+    artistLogin(email: String!, password: String!): AuthResponse!
+    artistSignup(input: ArtistSignupInput!): AuthResponse!
+    requestPasswordReset(email: String!): PasswordResetResponse!
+    resetPassword(token: String!, newPassword: String!): PasswordResetResponse!
   }
 
   input UserInput {
@@ -367,6 +383,14 @@ const typeDefs = gql`
     state: String!
     zipcode: String!
     paymentAmount: Float!
+  }
+
+  input ArtistSignupInput {
+    firstName: String!
+    lastName: String!
+    email: String!
+    password: String!
+    phone: String!
   }
 
   type EventRegistrationDetails {
