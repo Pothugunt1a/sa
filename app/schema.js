@@ -24,7 +24,10 @@ const typeDefs = gql`
 
   type Artist {
     artist_id: ID!
-    name: String!
+    firstName: String!
+    lastName: String!
+    email: String!
+    phone: String!
     bio: String
     arts: [Art]
   }
@@ -160,6 +163,7 @@ const typeDefs = gql`
   type PaymentIntent {
     clientSecret: String!
   }
+
   type OrderItem {
     order_item_id: ID!
     order_id: ID!
@@ -169,6 +173,7 @@ const typeDefs = gql`
     order: Order
     art: Art
   }
+
   type OrderTracking {
     tracking_id: ID!
     order_id: ID!
@@ -178,6 +183,7 @@ const typeDefs = gql`
     updated_at: String
     order: Order
   }
+
   type Review {
     review_id: ID!
     user_id: ID!
@@ -188,6 +194,7 @@ const typeDefs = gql`
     user: User
     art: Art
   }
+
   type Order {
     order_id: ID!
     customer_id: ID!
@@ -206,6 +213,7 @@ const typeDefs = gql`
     payment: Payment
     returnItems: [ReturnItem]
   }
+
   type ReturnItem {
     return_id: ID!
     order_id: ID!
@@ -216,11 +224,23 @@ const typeDefs = gql`
     order: Order
     art: Art
   }
-  type UserRole {
+    type UserRole {
     user_id: ID!
     role_id: ID!
     user: User
     role: Role
+  }
+
+  type AuthResponse {
+    success: Boolean!
+    message: String!
+    token: String
+    artist: Artist
+  }
+
+  type PasswordResetResponse {
+    success: Boolean!
+    message: String!
   }
 
   type EventRegistration {
@@ -251,25 +271,6 @@ const typeDefs = gql`
     message: String!
     registration: EventRegistration
     paymentIntent: PaymentIntent
-  }
-
-  type UserRole {
-    user_id: ID!
-    role_id: ID!
-    user: User
-    role: Role
-  }
-
-  type AuthResponse {
-    success: Boolean!
-    message: String!
-    token: String
-    artist: Artist
-  }
-
-  type PasswordResetResponse {
-    success: Boolean!
-    message: String!
   }
 
   type Query {
@@ -316,8 +317,8 @@ const typeDefs = gql`
     createEventRegistration(input: EventRegistrationInput!): EventRegistrationResponse!
     updateEventRegistrationPaymentStatus(registrationId: ID!, paymentStatus: String!): EventRegistrationResponse!
     registerForEvent(input: EventRegistrationInput!): EventRegistrationResponse!
-    artistLogin(email: String!, password: String!): AuthResponse!
     artistSignup(input: ArtistSignupInput!): AuthResponse!
+    artistLogin(email: String!, password: String!): AuthResponse!
     requestPasswordReset(email: String!): PasswordResetResponse!
     resetPassword(token: String!, newPassword: String!): PasswordResetResponse!
   }
