@@ -6,6 +6,9 @@ const UserRole = require('../models/UserRole');
 const Payment = require('../models/Payment');
 const EventRegistration = require('../models/EventRegistration');
 // Import other models as needed
+const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 const resolvers = {
   Query: {
     users: async () => await User.find(),
@@ -521,6 +524,155 @@ const resolvers = {
           registration: null
         };
       }
+    },
+    artistSignup: async (_, { input }) => {
+        try {
+            // Check if artist already exists
+            const existingArtist = await Artist.findOne({ email: input.email });
+            if (existingArtist) {
+                return {
+                    success: false,
+                    message: 'Email already registered'
+                };
+            }
+
+            // Create new artist
+            const artist = new Artist({
+                ...input,
+                artist_id: Date.now(), // You might want to use a better ID generation method
+            });
+
+            await artist.save();
+            const token = artist.generateAuthToken();
+
+            return {
+                success: true,
+                message: 'Artist registered successfully',
+                token,
+                artist
+            };
+        } catch (error) {
+            console.error('Signup error:', error);
+            return {
+                success: false,
+                message: 'Error creating account'
+            };
+        }
+    },
+
+    artistLogin: async (_, { email, password }) => {
+        try {
+            // Find artist by email
+            const artist = await Artist.findOne({ email });
+            if (!artist) {
+                return {
+                    success: false,
+                    message: 'Email not registered'
+                };
+            }
+
+            // Verify password
+            const isValid = await artist.comparePassword(password);
+            if (!isValid) {
+                return {
+                    success: false,
+                    message: 'Invalid password'
+                };
+            }
+
+            const token = artist.generateAuthToken();
+
+            return {
+                success: true,
+                message: 'Login successful',
+                token,
+                artist
+            };
+        } catch (error) {
+            console.error('Login error:', error);
+            return {
+                success: false,
+                message: 'Error during login'
+            };
+        }
+    },
+
+    requestPasswordReset: async (_, { email }) => {
+        try {
+            const artist = await Artist.findOne({ email });
+            if (!artist) {
+                return {
+                    success: false,
+                    message: 'Email not found'
+                };
+            }
+
+            // Generate reset token
+            const resetToken = crypto.randomBytes(32).toString('hex');
+            artist.resetPasswordToken = resetToken;
+            artist.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+            await artist.save();
+
+            // Send reset email
+            const transporter = nodemailer.createTransport({
+                // Configure your email service here
+                service: 'gmail',
+                auth: {
+                    user: process.env.EMAIL_USER,
+                    pass: process.env.EMAIL_PASS
+                }
+            });
+
+            const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+            await transporter.sendMail({
+                to: email,
+                subject: 'Password Reset Request',
+                html: `Click <a href="${resetUrl}">here</a> to reset your password. This link is valid for 1 hour.`
+            });
+
+            return {
+                success: true,
+                message: 'Password reset link sent to email'
+            };
+        } catch (error) {
+            console.error('Reset request error:', error);
+            return {
+                success: false,
+                message: 'Error sending reset link'
+            };
+        }
+    },
+
+    resetPassword: async (_, { token, newPassword }) => {
+        try {
+            const artist = await Artist.findOne({
+                resetPasswordToken: token,
+                resetPasswordExpires: { $gt: Date.now() }
+            });
+
+            if (!artist) {
+                return {
+                    success: false,
+                    message: 'Invalid or expired reset token'
+                };
+            }
+
+            artist.password = newPassword;
+            artist.resetPasswordToken = undefined;
+            artist.resetPasswordExpires = undefined;
+            await artist.save();
+
+            return {
+                success: true,
+                message: 'Password reset successful'
+            };
+        } catch (error) {
+            console.error('Reset password error:', error);
+            return {
+                success: false,
+                message: 'Error resetting password'
+            };
+        }
     }
     // Add more mutations
   },
