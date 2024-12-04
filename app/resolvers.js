@@ -564,24 +564,30 @@ const resolvers = {
         try {
             // Find artist by email
             const artist = await Artist.findOne({ email });
+            
+            // If no artist found with this email
             if (!artist) {
                 return {
                     success: false,
-                    message: 'Email not registered'
+                    message: 'This email is not registered. Please sign up first.',
+                    token: null,
+                    artist: null
                 };
             }
 
-            // Verify password
+            // Verify password only if artist exists
             const isValid = await artist.comparePassword(password);
             if (!isValid) {
                 return {
                     success: false,
-                    message: 'Invalid password'
+                    message: 'Invalid password. Please try again or use forgot password.',
+                    token: null,
+                    artist: null
                 };
             }
 
+            // If everything is valid, generate token and return success
             const token = artist.generateAuthToken();
-
             return {
                 success: true,
                 message: 'Login successful',
@@ -592,7 +598,9 @@ const resolvers = {
             console.error('Login error:', error);
             return {
                 success: false,
-                message: 'Error during login'
+                message: 'An error occurred during login. Please try again.',
+                token: null,
+                artist: null
             };
         }
     },
