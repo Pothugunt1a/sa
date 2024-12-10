@@ -8,6 +8,7 @@ const Role = require('./models/Role');
 const UserRole = require('./models/UserRole');
 const Payment = require('./models/Payment');
 const EventRegistration = require('./models/EventRegistration');
+const Artist = require('./models/Artist');
 
 // Mock Stripe
 jest.mock('stripe', () => {
@@ -66,6 +67,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await Payment.deleteMany({});
   await EventRegistration.deleteMany({});
+  await Artist.deleteMany({});
 });
 
 describe('Payment API', () => {
@@ -292,5 +294,144 @@ describe('Event Registration API', () => {
     });
 
     expect(res.data.getEventRegistration.event_name).toBe("Test Event");
+  });
+});
+
+describe('Artist Authentication', () => {
+  let testArtist;
+
+  beforeEach(async () => {
+    await Artist.deleteMany({});
+  });
+
+  it('should register a new artist', async () => {
+    const SIGNUP_MUTATION = `
+      mutation ArtistSignup($input: ArtistSignupInput!) {
+        artistSignup(input: $input) {
+          success
+          message
+          token
+          artist {
+            artist_id
+            firstName
+            lastName
+            email
+          }
+        }
+      }
+    `;
+
+    const res = await server.executeOperation({
+      query: SIGNUP_MUTATION,
+      variables: {
+        input: {
+          firstName: "John",
+          lastName: "Doe",
+          email: "john.doe@test.com",
+          password: "test123",
+          phone: "1234567890",
+          city: "Test City",
+          state: "TS",
+          country: "Test Country"
+        }
+      }
+    });
+
+    expect(res.data.artistSignup.success).toBe(true);
+    expect(res.data.artistSignup.artist.email).toBe("john.doe@test.com");
+    expect(res.data.artistSignup.token).toBeTruthy();
+
+    testArtist = res.data.artistSignup.artist;
+  });
+
+  it('should login an existing artist', async () => {
+    const LOGIN_MUTATION = `
+      mutation ArtistLogin($email: String!, $password: String!) {
+        artistLogin(email: $email, password: $password) {
+          success
+          message
+          token
+          artist {
+            artist_id
+            email
+          }
+        }
+      }
+    `;
+
+    const res = await server.executeOperation({
+      query: LOGIN_MUTATION,
+      variables: {
+        email: "john.doe@test.com",
+        password: "test123"
+      }
+    });
+
+    expect(res.data.artistLogin.success).toBe(true);
+    expect(res.data.artistLogin.token).toBeTruthy();
+  });
+
+  it('should handle login with wrong password', async () => {
+    const LOGIN_MUTATION = `
+      mutation ArtistLogin($email: String!, $password: String!) {
+        artistLogin(email: $email, password: $password) {
+          success
+          message
+        }
+      }
+    `;
+
+    const res = await server.executeOperation({
+      query: LOGIN_MUTATION,
+      variables: {
+        email: "john.doe@test.com",
+        password: "wrongpassword"
+      }
+    });
+
+    expect(res.data.artistLogin.success).toBe(false);
+    expect(res.data.artistLogin.message).toContain('Invalid password');
+  });
+
+  it('should handle login with unregistered email', async () => {
+    const LOGIN_MUTATION = `
+      mutation ArtistLogin($email: String!, $password: String!) {
+        artistLogin(email: $email, password: $password) {
+          success
+          message
+        }
+      }
+    `;
+
+    const res = await server.executeOperation({
+      query: LOGIN_MUTATION,
+      variables: {
+        email: "nonexistent@test.com",
+        password: "test123"
+      }
+    });
+
+    expect(res.data.artistLogin.success).toBe(false);
+    expect(res.data.artistLogin.message).toContain('not registered');
+  });
+
+  it('should request password reset', async () => {
+    const REQUEST_RESET = `
+      mutation RequestReset($email: String!) {
+        requestPasswordReset(email: $email) {
+          success
+          message
+        }
+      }
+    `;
+
+    const res = await server.executeOperation({
+      query: REQUEST_RESET,
+      variables: {
+        email: "john.doe@test.com"
+      }
+    });
+
+    expect(res.data.requestPasswordReset.success).toBe(true);
   });
 });
