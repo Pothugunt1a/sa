@@ -8,6 +8,7 @@ const EventRegistration = require('../models/EventRegistration');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const Artwork = require('../models/Artwork');
 // Import other models as needed
 const resolvers = {
   Query: {
@@ -141,6 +142,48 @@ const resolvers = {
       } catch (error) {
         console.error('Error fetching registration details:', error);
         throw new Error(`Failed to fetch registration details: ${error.message}`);
+      }
+    },
+    getArtistProfile: async (_, { artistId }) => {
+      try {
+        const artist = await Artist.findOne({ artist_id: artistId });
+        if (!artist) {
+          throw new Error('Artist not found');
+        }
+        return {
+          aboutText: artist.bio,
+          profileImage: artist.profileImage,
+          displayName: artist.displayName || `${artist.firstName} ${artist.lastName}`,
+          address: artist.address,
+          subscription: artist.subscription,
+          publicLink: artist.publicLink,
+          socialLinks: artist.socialLinks
+        };
+      } catch (error) {
+        throw new Error(`Failed to fetch artist profile: ${error.message}`);
+      }
+    },
+    getArtistArtworks: async (_, { artistId }) => {
+      try {
+        return await Artwork.find({ artist_id: artistId });
+      } catch (error) {
+        throw new Error(`Failed to fetch artworks: ${error.message}`);
+      }
+    },
+    getArtistPublicProfile: async (_, { artistId }) => {
+      try {
+        const artist = await Artist.findOne({ artist_id: artistId });
+        if (!artist) {
+          throw new Error('Artist not found');
+        }
+        return {
+          aboutText: artist.bio,
+          profileImage: artist.profileImage,
+          displayName: artist.displayName || `${artist.firstName} ${artist.lastName}`,
+          socialLinks: artist.socialLinks
+        };
+      } catch (error) {
+        throw new Error(`Failed to fetch public profile: ${error.message}`);
       }
     }
     // Add more queries
@@ -677,6 +720,75 @@ const resolvers = {
           success: false,
           message: 'Error resetting password'
         };
+      }
+    },
+
+    updateArtistProfile: async (_, { artistId, input }) => {
+      try {
+        const artist = await Artist.findOneAndUpdate(
+          { artist_id: artistId },
+          {
+            $set: {
+              bio: input.aboutText,
+              profileImage: input.profileImage,
+              displayName: input.displayName,
+              address: input.address,
+              subscription: input.subscription,
+              publicLink: input.publicLink,
+              socialLinks: input.socialLinks
+            }
+          },
+          { new: true }
+        );
+
+        if (!artist) {
+          throw new Error('Artist not found');
+        }
+
+        return {
+          aboutText: artist.bio,
+          profileImage: artist.profileImage,
+          displayName: artist.displayName,
+          address: artist.address,
+          subscription: artist.subscription,
+          publicLink: artist.publicLink,
+          socialLinks: artist.socialLinks
+        };
+      } catch (error) {
+        throw new Error(`Failed to update profile: ${error.message}`);
+      }
+    },
+
+    addArtwork: async (_, { artistId, input }) => {
+      try {
+        const artwork = new Artwork({
+          ...input,
+          artist_id: artistId
+        });
+        return await artwork.save();
+      } catch (error) {
+        throw new Error(`Failed to add artwork: ${error.message}`);
+      }
+    },
+
+    updateArtwork: async (_, { artworkId, input }) => {
+      try {
+        return await Artwork.findByIdAndUpdate(
+          artworkId,
+          { $set: input },
+          { new: true }
+        );
+      } catch (error) {
+        throw new Error(`Failed to update artwork: ${error.message}`);
+      }
+    },
+
+    deleteArtwork: async (_, { artworkId }) => {
+      try {
+        const result = await Artwork.findByIdAndDelete(artworkId);
+        return !!result;
+      } catch (error) {
+        throw new Error(`Failed to delete artwork: ${error.message}`);
       }
     }
   },
