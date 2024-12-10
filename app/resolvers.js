@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const Artwork = require('../models/Artwork');
 // Import other models as needed
+
 const resolvers = {
   Query: {
     users: async () => await User.find(),
