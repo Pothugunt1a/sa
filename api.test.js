@@ -423,7 +423,6 @@ describe('Artist Authentication', () => {
         }
       }
     `;
-
     const res = await server.executeOperation({
       query: REQUEST_RESET,
       variables: {
