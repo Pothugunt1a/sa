@@ -25,16 +25,32 @@ const ArtistSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
-    bio: {
+    city: String,
+    state: String,
+    country: String,
+    bio: String,
+    profileImage: String,
+    displayName: String,
+    address: String,
+    subscription: {
         type: String,
+        default: 'free'
+    },
+    publicLink: String,
+    socialLinks: {
+        facebook: String,
+        instagram: String
+    },
+    isVerified: {
+        type: Boolean,
+        default: false
     },
     resetPasswordToken: String,
-    resetPasswordExpires: Date,
+    resetPasswordExpires: Date
 }, {
     timestamps: true
 });
 
-// Add auto-incrementing artist_id
 ArtistSchema.plugin(AutoIncrement, { inc_field: 'artist_id' });
 
 // Hash password before saving
