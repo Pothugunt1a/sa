@@ -27,9 +27,17 @@ const typeDefs = gql`
     firstName: String!
     lastName: String!
     email: String!
+    password: String!
     phone: String!
+    city: String
+    state: String
+    country: String
     bio: String
-    arts: [Art]
+    profileImage: String
+    artworks: [Artwork]
+    isVerified: Boolean
+    resetPasswordToken: String
+    resetPasswordExpires: String
   }
 
   type Art {
@@ -293,6 +301,9 @@ const typeDefs = gql`
     getRegistrationsByEmail(email: String!): [EventRegistration]!
     getRegistrationDetails(registrationId: ID!): EventRegistrationDetails!
     getRegistrationWithPayment(registrationId: ID!): RegistrationWithPayment!
+    getArtistProfile(artistId: ID!): ArtistProfile
+    getArtistArtworks(artistId: ID!): [Artwork]
+    getArtistPublicProfile(artistId: ID!): ArtistProfile
   }
 
   type Mutation {
@@ -321,6 +332,10 @@ const typeDefs = gql`
     artistLogin(email: String!, password: String!): AuthResponse!
     requestPasswordReset(email: String!): PasswordResetResponse!
     resetPassword(token: String!, newPassword: String!): PasswordResetResponse!
+    updateArtistProfile(artistId: ID!, input: ProfileUpdateInput!): ArtistProfile!
+    addArtwork(artistId: ID!, input: ArtworkInput!): Artwork!
+    updateArtwork(artworkId: ID!, input: ArtworkInput!): Artwork!
+    deleteArtwork(artworkId: ID!): Boolean!
   }
 
   input UserInput {
@@ -392,6 +407,9 @@ const typeDefs = gql`
     email: String!
     password: String!
     phone: String!
+    city: String
+    state: String
+    country: String
   }
 
   type EventRegistrationDetails {
@@ -403,6 +421,56 @@ const typeDefs = gql`
     registration: EventRegistration!
     payment: Payment
     isFreeEvent: Boolean!
+  }
+
+  type Artwork {
+    id: ID!
+    artist_id: ID!
+    type: String!
+    title: String!
+    description: String
+    price: Float!
+    imageUrl: String
+    status: String
+    createdAt: String
+  }
+
+  type ArtistProfile {
+    aboutText: String
+    profileImage: String
+    displayName: String
+    address: String
+    subscription: String
+    publicLink: String
+    socialLinks: SocialLinks
+  }
+
+  type SocialLinks {
+    facebook: String
+    instagram: String
+  }
+
+  input ArtworkInput {
+    type: String!
+    title: String!
+    description: String
+    price: Float!
+    imageUrl: String
+  }
+
+  input ProfileUpdateInput {
+    aboutText: String
+    profileImage: String
+    displayName: String
+    address: String
+    subscription: String
+    publicLink: String
+    socialLinks: SocialLinksInput
+  }
+
+  input SocialLinksInput {
+    facebook: String
+    instagram: String
   }
 `;
 
