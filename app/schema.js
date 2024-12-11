@@ -23,13 +23,17 @@ const typeDefs = gql`
   }
 
   type Artist {
-    artist_id: ID!
+    _id: ID!
     firstName: String!
     lastName: String!
     email: String!
-    phone: String!
+    phoneNumber: String!
+    city: String!
+    state: String!
+    country: String!
     bio: String
-    arts: [Art]
+    profileImage: String
+    isVerified: Boolean!
   }
 
   type Art {
