@@ -525,24 +525,61 @@ const resolvers = {
         };
       }
     },
+    artistLogin: async (_, { email, password }) => {
+      try {
+        const artist = await Artist.findOne({ email });
+        if (!artist) {
+          return {
+            success: false,
+            message: 'Email not registered'
+          };
+        }
+
+        if (!artist.isVerified) {
+          return {
+            success: false,
+            message: 'Please verify your email before logging in'
+          };
+        }
+
+        const isValid = await artist.comparePassword(password);
+        if (!isValid) {
+          return {
+            success: false,
+            message: 'Invalid password'
+          };
+        }
+
+        const token = artist.generateAuthToken();
+        return {
+          success: true,
+          message: 'Login successful',
+          token,
+          artist
+        };
+      } catch (error) {
+        console.error('Login error:', error);
+        return {
+          success: false,
+          message: 'An error occurred during login'
+        };
+      }
+    },
+
     artistSignup: async (_, { input }) => {
       try {
-        // Check if email already exists
         const existingArtist = await Artist.findOne({ email: input.email });
         if (existingArtist) {
           return {
             success: false,
-            message: 'Email is already registered'
+            message: 'Email already registered'
           };
         }
 
-        // Create verification token
-        const verificationToken = crypto.randomBytes(32).toString('hex');
-        
-        // Create new artist
         const artist = new Artist({
           ...input,
-          verificationToken
+          isVerified: false,
+          verificationToken: crypto.randomBytes(32).toString('hex')
         });
 
         await artist.save();
@@ -556,12 +593,10 @@ const resolvers = {
           }
         });
 
-        const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${verificationToken}`;
-        
         await transporter.sendMail({
-          to: input.email,
+          to: artist.email,
           subject: 'Verify your email',
-          html: `Please click <a href="${verificationUrl}">here</a> to verify your email.`
+          html: `Please click <a href="${process.env.FRONTEND_URL}/verify-email/${artist.verificationToken}">here</a> to verify your email.`
         });
 
         return {
@@ -573,49 +608,7 @@ const resolvers = {
         console.error('Signup error:', error);
         return {
           success: false,
-          message: error.message
-        };
-      }
-    },
-
-    artistLogin: async (_, { email, password }) => {
-      try {
-        const artist = await Artist.findOne({ email });
-        if (!artist) {
-          return {
-            success: false,
-            message: 'Email is not registered. Please sign up first.',
-          };
-        }
-
-        if (!artist.isVerified) {
-          return {
-            success: false,
-            message: 'Please verify your email before logging in.'
-          };
-        }
-
-        const isValidPassword = await artist.comparePassword(password);
-        if (!isValidPassword) {
-          return {
-            success: false,
-            message: 'Invalid password.'
-          };
-        }
-
-        const token = artist.generateAuthToken();
-
-        return {
-          success: true,
-          message: 'Login successful',
-          token,
-          artist
-        };
-      } catch (error) {
-        console.error('Login error:', error);
-        return {
-          success: false,
-          message: error.message
+          message: 'An error occurred during registration'
         };
       }
     },
@@ -641,12 +634,10 @@ const resolvers = {
           }
         });
 
-        const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-        
         await transporter.sendMail({
           to: email,
-          subject: 'Password Reset Request',
-          html: `Click <a href="${resetUrl}">here</a> to reset your password. This link is valid for 30 minutes.`
+          subject: 'Reset your password',
+          html: `Click <a href="${process.env.FRONTEND_URL}/reset-password/${resetToken}">here</a> to reset your password.`
         });
 
         return {
@@ -654,10 +645,10 @@ const resolvers = {
           message: 'Password reset link sent to your email'
         };
       } catch (error) {
-        console.error('Reset request error:', error);
+        console.error('Password reset request error:', error);
         return {
           success: false,
-          message: 'Error sending reset link'
+          message: 'An error occurred while processing your request'
         };
       }
     },
@@ -691,10 +682,10 @@ const resolvers = {
           message: 'Password reset successful'
         };
       } catch (error) {
-        console.error('Reset password error:', error);
+        console.error('Password reset error:', error);
         return {
           success: false,
-          message: 'Error resetting password'
+          message: 'An error occurred while resetting your password'
         };
       }
     },
