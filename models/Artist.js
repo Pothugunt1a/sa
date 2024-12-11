@@ -4,6 +4,10 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
 const ArtistSchema = new mongoose.Schema({
+    artist_id: {
+        type: Number,
+        unique: true
+    },
     firstName: {
         type: String,
         required: [true, 'First name is required']
