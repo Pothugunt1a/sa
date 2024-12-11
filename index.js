@@ -29,7 +29,7 @@ async function startServer() {
       ],
       credentials: true,
       methods: ['GET', 'POST', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization']
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
     }));
 
     console.log('Initializing MongoDB connection...');
