@@ -27,17 +27,9 @@ const typeDefs = gql`
     firstName: String!
     lastName: String!
     email: String!
-    password: String!
     phone: String!
-    city: String
-    state: String
-    country: String
     bio: String
-    profileImage: String
-    artworks: [Artwork]
-    isVerified: Boolean
-    resetPasswordToken: String
-    resetPasswordExpires: String
+    arts: [Art]
   }
 
   type Art {
@@ -301,9 +293,8 @@ const typeDefs = gql`
     getRegistrationsByEmail(email: String!): [EventRegistration]!
     getRegistrationDetails(registrationId: ID!): EventRegistrationDetails!
     getRegistrationWithPayment(registrationId: ID!): RegistrationWithPayment!
-    getArtistProfile(artistId: ID!): ArtistProfile
-    getArtistArtworks(artistId: ID!): [Artwork]
-    getArtistPublicProfile(artistId: ID!): ArtistProfile
+    getArtist(id: ID!): Artist
+    getArtistByEmail(email: String!): Artist
   }
 
   type Mutation {
@@ -332,10 +323,8 @@ const typeDefs = gql`
     artistLogin(email: String!, password: String!): AuthResponse!
     requestPasswordReset(email: String!): PasswordResetResponse!
     resetPassword(token: String!, newPassword: String!): PasswordResetResponse!
-    updateArtistProfile(artistId: ID!, input: ProfileUpdateInput!): ArtistProfile!
-    addArtwork(artistId: ID!, input: ArtworkInput!): Artwork!
-    updateArtwork(artworkId: ID!, input: ArtworkInput!): Artwork!
-    deleteArtwork(artworkId: ID!): Boolean!
+    verifyEmail(token: String!): VerificationResponse!
+    updateArtistProfile(id: ID!, bio: String, profileImage: String): Artist!
   }
 
   input UserInput {
@@ -406,10 +395,10 @@ const typeDefs = gql`
     lastName: String!
     email: String!
     password: String!
-    phone: String!
-    city: String
-    state: String
-    country: String
+    phoneNumber: String!
+    city: String!
+    state: String!
+    country: String!
   }
 
   type EventRegistrationDetails {
@@ -423,54 +412,9 @@ const typeDefs = gql`
     isFreeEvent: Boolean!
   }
 
-  type Artwork {
-    id: ID!
-    artist_id: ID!
-    type: String!
-    title: String!
-    description: String
-    price: Float!
-    imageUrl: String
-    status: String
-    createdAt: String
-  }
-
-  type ArtistProfile {
-    aboutText: String
-    profileImage: String
-    displayName: String
-    address: String
-    subscription: String
-    publicLink: String
-    socialLinks: SocialLinks
-  }
-
-  type SocialLinks {
-    facebook: String
-    instagram: String
-  }
-
-  input ArtworkInput {
-    type: String!
-    title: String!
-    description: String
-    price: Float!
-    imageUrl: String
-  }
-
-  input ProfileUpdateInput {
-    aboutText: String
-    profileImage: String
-    displayName: String
-    address: String
-    subscription: String
-    publicLink: String
-    socialLinks: SocialLinksInput
-  }
-
-  input SocialLinksInput {
-    facebook: String
-    instagram: String
+  type VerificationResponse {
+    success: Boolean!
+    message: String!
   }
 `;
 
