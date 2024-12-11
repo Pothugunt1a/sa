@@ -25,7 +25,8 @@ async function startServer() {
       origin: [
         'https://shashikala-foundation.netlify.app',
         'http://localhost:3000',
-        'https://studio.apollographql.com'
+        'https://studio.apollographql.com',
+        'https://shashikala-backend-gddy.onrender.com'
       ],
       credentials: true,
       methods: ['GET', 'POST', 'OPTIONS'],
