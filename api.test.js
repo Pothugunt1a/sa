@@ -9,6 +9,7 @@ const UserRole = require('./models/UserRole');
 const Payment = require('./models/Payment');
 const EventRegistration = require('./models/EventRegistration');
 const Artist = require('./models/Artist');
+
 // Mock Stripe
 jest.mock('stripe', () => {
   return jest.fn().mockImplementation(() => ({
@@ -28,6 +29,13 @@ jest.mock('stripe', () => {
     },
   }));
 });
+
+// Mock nodemailer
+jest.mock('nodemailer', () => ({
+  createTransport: jest.fn().mockReturnValue({
+    sendMail: jest.fn().mockResolvedValue(true)
+  })
+}));
 
 const stripeMock = {
   paymentIntents: {
@@ -52,15 +60,20 @@ beforeAll(async () => {
   server = new ApolloServer({ 
     typeDefs, 
     resolvers,
-    context: () => ({ stripe: stripeMock })
+    context: () => ({ 
+      stripe: stripeMock,
+      // Add any other context needed for tests
+    })
   });
   await server.start();
   await mongoose.connect(global.__MONGO_URI__);
 });
 
 afterAll(async () => {
+  if (server) {
+    await server.stop();
+  }
   await mongoose.connection.close();
-  await server.stop();
 });
 
 beforeEach(async () => {
@@ -297,11 +310,16 @@ describe('Event Registration API', () => {
 });
 
 describe('Artist Authentication', () => {
-  let testArtist;
-
-  beforeEach(async () => {
-    await Artist.deleteMany({});
-  });
+  const testArtist = {
+    firstName: 'John',
+    lastName: 'Doe',
+    email: 'john@example.com',
+    password: 'password123',
+    phoneNumber: '1234567890',
+    city: 'Test City',
+    state: 'Test State',
+    country: 'Test Country'
+  };
 
   it('should register a new artist', async () => {
     const SIGNUP_MUTATION = `
@@ -309,12 +327,10 @@ describe('Artist Authentication', () => {
         artistSignup(input: $input) {
           success
           message
-          token
           artist {
-            artist_id
+            email
             firstName
             lastName
-            email
           }
         }
       }
@@ -322,28 +338,41 @@ describe('Artist Authentication', () => {
 
     const res = await server.executeOperation({
       query: SIGNUP_MUTATION,
-      variables: {
-        input: {
-          firstName: "John",
-          lastName: "Doe",
-          email: "john.doe@test.com",
-          password: "test123",
-          phone: "1234567890",
-          city: "Test City",
-          state: "TS",
-          country: "Test Country"
-        }
-      }
+      variables: { input: testArtist }
     });
 
     expect(res.data.artistSignup.success).toBe(true);
-    expect(res.data.artistSignup.artist.email).toBe("john.doe@test.com");
-    expect(res.data.artistSignup.token).toBeTruthy();
-
-    testArtist = res.data.artistSignup.artist;
+    expect(res.data.artistSignup.artist.email).toBe(testArtist.email);
   });
 
-  it('should login an existing artist', async () => {
+  it('should not register artist with existing email', async () => {
+    await Artist.create(testArtist);
+
+    const SIGNUP_MUTATION = `
+      mutation ArtistSignup($input: ArtistSignupInput!) {
+        artistSignup(input: $input) {
+          success
+          message
+        }
+      }
+    `;
+
+    const res = await server.executeOperation({
+      query: SIGNUP_MUTATION,
+      variables: { input: testArtist }
+    });
+
+    expect(res.data.artistSignup.success).toBe(false);
+    expect(res.data.artistSignup.message).toContain('already registered');
+  });
+
+  it('should login artist with correct credentials', async () => {
+    const artist = new Artist({
+      ...testArtist,
+      isVerified: true
+    });
+    await artist.save();
+
     const LOGIN_MUTATION = `
       mutation ArtistLogin($email: String!, $password: String!) {
         artistLogin(email: $email, password: $password) {
@@ -351,7 +380,6 @@ describe('Artist Authentication', () => {
           message
           token
           artist {
-            artist_id
             email
           }
         }
@@ -360,9 +388,9 @@ describe('Artist Authentication', () => {
 
     const res = await server.executeOperation({
       query: LOGIN_MUTATION,
-      variables: {
-        email: "john.doe@test.com",
-        password: "test123"
+      variables: { 
+        email: testArtist.email,
+        password: testArtist.password
       }
     });
 
@@ -370,7 +398,9 @@ describe('Artist Authentication', () => {
     expect(res.data.artistLogin.token).toBeTruthy();
   });
 
-  it('should handle login with wrong password', async () => {
+  it('should not login unverified artist', async () => {
+    await Artist.create(testArtist);
+
     const LOGIN_MUTATION = `
       mutation ArtistLogin($email: String!, $password: String!) {
         artistLogin(email: $email, password: $password) {
@@ -382,9 +412,81 @@ describe('Artist Authentication', () => {
 
     const res = await server.executeOperation({
       query: LOGIN_MUTATION,
-      variables: {
-        email: "john.doe@test.com",
-        password: "wrongpassword"
+      variables: { 
+        email: testArtist.email,
+        password: testArtist.password
+      }
+    });
+
+    expect(res.data.artistLogin.success).toBe(false);
+    expect(res.data.artistLogin.message).toContain('verify your email');
+  });
+
+  it('should handle password reset request', async () => {
+    await Artist.create(testArtist);
+
+    const RESET_REQUEST_MUTATION = `
+      mutation RequestPasswordReset($email: String!) {
+        requestPasswordReset(email: $email) {
+          success
+          message
+        }
+      }
+    `;
+
+    const res = await server.executeOperation({
+      query: RESET_REQUEST_MUTATION,
+      variables: { email: testArtist.email }
+    });
+
+    expect(res.data.requestPasswordReset.success).toBe(true);
+  });
+
+  it('should verify email with valid token', async () => {
+    const verificationToken = 'test-token';
+    await Artist.create({
+      ...testArtist,
+      verificationToken
+    });
+
+    const VERIFY_EMAIL_MUTATION = `
+      mutation VerifyEmail($token: String!) {
+        verifyEmail(token: $token) {
+          success
+          message
+        }
+      }
+    `;
+
+    const res = await server.executeOperation({
+      query: VERIFY_EMAIL_MUTATION,
+      variables: { token: verificationToken }
+    });
+
+    expect(res.data.verifyEmail.success).toBe(true);
+  });
+
+  it('should handle invalid login credentials', async () => {
+    const artist = new Artist({
+      ...testArtist,
+      isVerified: true
+    });
+    await artist.save();
+
+    const LOGIN_MUTATION = `
+      mutation ArtistLogin($email: String!, $password: String!) {
+        artistLogin(email: $email, password: $password) {
+          success
+          message
+        }
+      }
+    `;
+
+    const res = await server.executeOperation({
+      query: LOGIN_MUTATION,
+      variables: { 
+        email: testArtist.email,
+        password: 'wrongpassword'
       }
     });
 
@@ -392,44 +494,22 @@ describe('Artist Authentication', () => {
     expect(res.data.artistLogin.message).toContain('Invalid password');
   });
 
-  it('should handle login with unregistered email', async () => {
-    const LOGIN_MUTATION = `
-      mutation ArtistLogin($email: String!, $password: String!) {
-        artistLogin(email: $email, password: $password) {
-          success
-          message
-        }
-      }
-    `;
-
-    const res = await server.executeOperation({
-      query: LOGIN_MUTATION,
-      variables: {
-        email: "nonexistent@test.com",
-        password: "test123"
-      }
-    });
-
-    expect(res.data.artistLogin.success).toBe(false);
-    expect(res.data.artistLogin.message).toContain('not registered');
-  });
-
-  it('should request password reset', async () => {
-    const REQUEST_RESET = `
-      mutation RequestReset($email: String!) {
+  it('should handle non-existent email for password reset', async () => {
+    const RESET_REQUEST_MUTATION = `
+      mutation RequestPasswordReset($email: String!) {
         requestPasswordReset(email: $email) {
           success
           message
         }
       }
     `;
+
     const res = await server.executeOperation({
-      query: REQUEST_RESET,
-      variables: {
-        email: "john.doe@test.com"
-      }
+      query: RESET_REQUEST_MUTATION,
+      variables: { email: 'nonexistent@example.com' }
     });
 
-    expect(res.data.requestPasswordReset.success).toBe(true);
+    expect(res.data.requestPasswordReset.success).toBe(false);
+    expect(res.data.requestPasswordReset.message).toContain('Email not found');
   });
 });
