@@ -34,6 +34,7 @@ const typeDefs = gql`
     bio: String
     profileImage: String
     isVerified: Boolean!
+    arts: [Art]
   }
 
   type Art {
@@ -43,8 +44,8 @@ const typeDefs = gql`
     description: String
     upload_date: String
     status: String!
-    categoryid: ID
-    catalog_id: ID
+    categoryid: Int
+    catalog_id: Int
     artist: Artist
     images: [ArtImages]
     reviews: [Review]
