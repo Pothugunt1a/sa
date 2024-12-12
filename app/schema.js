@@ -24,6 +24,7 @@ const typeDefs = gql`
 
   type Artist {
     _id: ID!
+    artist_id: ID!
     firstName: String!
     lastName: String!
     email: String!
