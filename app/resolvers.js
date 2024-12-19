@@ -8,6 +8,7 @@ const EventRegistration = require('../models/EventRegistration');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const Artwork = require('../models/Artwork');
 // Import other models as needed
 const resolvers = {
   Query: {
@@ -142,7 +143,56 @@ const resolvers = {
         console.error('Error fetching registration details:', error);
         throw new Error(`Failed to fetch registration details: ${error.message}`);
       }
-    }
+    },
+    getArtistProfile: async (_, { artistId }) => {
+      try {
+        const artist = await Artist.findOne({ artist_id: artistId });
+        if (!artist) {
+          throw new Error('Artist not found');
+        }
+        return {
+          aboutText: artist.bio,
+          profileImage: artist.profileImage,
+          displayName: artist.displayName || `${artist.firstName} ${artist.lastName}`,
+          address: artist.address,
+          subscription: artist.subscription,
+          publicLink: artist.publicLink,
+          socialLinks: artist.socialLinks
+        };
+      } catch (error) {
+        throw new Error(`Failed to fetch artist profile: ${error.message}`);
+      }
+    },
+    getArtistArtworks: async (_, { artistId }) => {
+      try {
+        return await Artwork.find({ artist_id: artistId });
+      } catch (error) {
+        throw new Error(`Failed to fetch artworks: ${error.message}`);
+      }
+    },
+    getArtistPublicProfile: async (_, { artistId }) => {
+      try {
+        const artist = await Artist.findOne({ artist_id: artistId });
+        if (!artist) {
+          throw new Error('Artist not found');
+        }
+        return {
+          aboutText: artist.bio,
+          profileImage: artist.profileImage,
+          displayName: artist.displayName || `${artist.firstName} ${artist.lastName}`,
+          socialLinks: artist.socialLinks
+        };
+      } catch (error) {
+        throw new Error(`Failed to fetch public profile: ${error.message}`);
+      }
+    },
+    getArtistByEmail: async (_, { email }) => {
+      try {
+        return await Artist.findOne({ email });
+      } catch (error) {
+        throw new Error(`Failed to fetch artist: ${error.message}`);
+      }
+    },
     // Add more queries
   },
   Mutation: {
@@ -525,49 +575,9 @@ const resolvers = {
         };
       }
     },
-    artistLogin: async (_, { email, password }) => {
-      try {
-        const artist = await Artist.findOne({ email });
-        if (!artist) {
-          return {
-            success: false,
-            message: 'Email not registered'
-          };
-        }
-
-        if (!artist.isVerified) {
-          return {
-            success: false,
-            message: 'Please verify your email before logging in'
-          };
-        }
-
-        const isValid = await artist.comparePassword(password);
-        if (!isValid) {
-          return {
-            success: false,
-            message: 'Invalid password'
-          };
-        }
-
-        const token = artist.generateAuthToken();
-        return {
-          success: true,
-          message: 'Login successful',
-          token,
-          artist
-        };
-      } catch (error) {
-        console.error('Login error:', error);
-        return {
-          success: false,
-          message: 'An error occurred during login'
-        };
-      }
-    },
-
     artistSignup: async (_, { input }) => {
       try {
+        // Check if artist already exists
         const existingArtist = await Artist.findOne({ email: input.email });
         if (existingArtist) {
           return {
@@ -576,39 +586,78 @@ const resolvers = {
           };
         }
 
+        // Create new artist
         const artist = new Artist({
-          ...input,
-          isVerified: false,
-          verificationToken: crypto.randomBytes(32).toString('hex')
+          firstName: input.firstName,
+          lastName: input.lastName,
+          email: input.email,
+          password: input.password, // Will be hashed by pre-save hook
+          phone: input.phone,
+          city: input.city || '',
+          state: input.state || '',
+          country: input.country || ''
         });
 
         await artist.save();
-
-        // Send verification email
-        const transporter = nodemailer.createTransport({
-          service: 'gmail',
-          auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS
-          }
-        });
-
-        await transporter.sendMail({
-          to: artist.email,
-          subject: 'Verify your email',
-          html: `Please click <a href="${process.env.FRONTEND_URL}/verify-email/${artist.verificationToken}">here</a> to verify your email.`
-        });
+        const token = artist.generateAuthToken();
 
         return {
           success: true,
-          message: 'Registration successful. Please check your email to verify your account.',
-          artist
+          message: 'Registration successful',
+          token,
+          artist: {
+            email: artist.email,
+            firstName: artist.firstName,
+            lastName: artist.lastName
+          }
         };
       } catch (error) {
         console.error('Signup error:', error);
         return {
           success: false,
-          message: 'An error occurred during registration'
+          message: error.message || 'Error creating account'
+        };
+      }
+    },
+
+    artistLogin: async (_, { email, password }) => {
+      try {
+        // Find artist by email
+        const artist = await Artist.findOne({ email });
+        if (!artist) {
+          return {
+            success: false,
+            message: 'Email is not registered'
+          };
+        }
+
+        // Verify password
+        const isValidPassword = await artist.comparePassword(password);
+        if (!isValidPassword) {
+          return {
+            success: false,
+            message: 'Invalid password'
+          };
+        }
+
+        // Generate token
+        const token = artist.generateAuthToken();
+
+        return {
+          success: true,
+          message: 'Login successful',
+          token,
+          artist: {
+            email: artist.email,
+            firstName: artist.firstName,
+            lastName: artist.lastName
+          }
+        };
+      } catch (error) {
+        console.error('Login error:', error);
+        return {
+          success: false,
+          message: 'An error occurred during login'
         };
       }
     },
@@ -623,9 +672,13 @@ const resolvers = {
           };
         }
 
-        const resetToken = artist.generatePasswordResetToken();
+        // Generate reset token
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        artist.resetPasswordToken = resetToken;
+        artist.resetPasswordExpires = Date.now() + 3600000; // 1 hour expiry
         await artist.save();
 
+        // Setup email transporter
         const transporter = nodemailer.createTransport({
           service: 'gmail',
           auth: {
@@ -634,10 +687,18 @@ const resolvers = {
           }
         });
 
+        // Send reset email
+        const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
         await transporter.sendMail({
           to: email,
-          subject: 'Reset your password',
-          html: `Click <a href="${process.env.FRONTEND_URL}/reset-password/${resetToken}">here</a> to reset your password.`
+          subject: 'Password Reset Request',
+          html: `
+            <h2>Password Reset Request</h2>
+            <p>Click the link below to reset your password:</p>
+            <a href="${resetUrl}">Reset Password</a>
+            <p>This link will expire in 1 hour.</p>
+            <p>If you didn't request this, please ignore this email.</p>
+          `
         });
 
         return {
@@ -648,20 +709,16 @@ const resolvers = {
         console.error('Password reset request error:', error);
         return {
           success: false,
-          message: 'An error occurred while processing your request'
+          message: 'Error sending reset link'
         };
       }
     },
 
     resetPassword: async (_, { token, newPassword }) => {
       try {
-        const hashedToken = crypto
-          .createHash('sha256')
-          .update(token)
-          .digest('hex');
-
+        // Find artist with valid reset token
         const artist = await Artist.findOne({
-          resetPasswordToken: hashedToken,
+          resetPasswordToken: token,
           resetPasswordExpires: { $gt: Date.now() }
         });
 
@@ -672,6 +729,7 @@ const resolvers = {
           };
         }
 
+        // Update password and clear reset token
         artist.password = newPassword;
         artist.resetPasswordToken = undefined;
         artist.resetPasswordExpires = undefined;
@@ -679,41 +737,83 @@ const resolvers = {
 
         return {
           success: true,
-          message: 'Password reset successful'
+          message: 'Password has been reset successfully'
         };
       } catch (error) {
         console.error('Password reset error:', error);
         return {
           success: false,
-          message: 'An error occurred while resetting your password'
+          message: 'Error resetting password'
         };
       }
     },
 
-    verifyEmail: async (_, { token }) => {
+    updateArtistProfile: async (_, { artistId, input }) => {
       try {
-        const artist = await Artist.findOne({ verificationToken: token });
+        const artist = await Artist.findOneAndUpdate(
+          { artist_id: artistId },
+          {
+            $set: {
+              bio: input.aboutText,
+              profileImage: input.profileImage,
+              displayName: input.displayName,
+              address: input.address,
+              subscription: input.subscription,
+              publicLink: input.publicLink,
+              socialLinks: input.socialLinks
+            }
+          },
+          { new: true }
+        );
+
         if (!artist) {
-          return {
-            success: false,
-            message: 'Invalid verification token'
-          };
+          throw new Error('Artist not found');
         }
 
-        artist.isVerified = true;
-        artist.verificationToken = undefined;
-        await artist.save();
-
         return {
-          success: true,
-          message: 'Email verified successfully'
+          aboutText: artist.bio,
+          profileImage: artist.profileImage,
+          displayName: artist.displayName,
+          address: artist.address,
+          subscription: artist.subscription,
+          publicLink: artist.publicLink,
+          socialLinks: artist.socialLinks
         };
       } catch (error) {
-        console.error('Email verification error:', error);
-        return {
-          success: false,
-          message: 'Error verifying email'
-        };
+        throw new Error(`Failed to update profile: ${error.message}`);
+      }
+    },
+
+    addArtwork: async (_, { artistId, input }) => {
+      try {
+        const artwork = new Artwork({
+          ...input,
+          artist_id: artistId
+        });
+        return await artwork.save();
+      } catch (error) {
+        throw new Error(`Failed to add artwork: ${error.message}`);
+      }
+    },
+
+    updateArtwork: async (_, { artworkId, input }) => {
+      try {
+        return await Artwork.findByIdAndUpdate(
+          artworkId,
+          { $set: input },
+          { new: true }
+        );
+      } catch (error) {
+        throw new Error(`Failed to update artwork: ${error.message}`);
+      }
+    },
+
+    deleteArtwork: async (_, { artworkId }) => {
+      try {
+        const result = await Artwork.findByIdAndDelete(artworkId);
+        return !!result;
+      } catch (error) {
+        throw new Error(`Failed to delete artwork: ${error.message}`);
       }
     }
   },
@@ -724,7 +824,7 @@ const resolvers = {
     users: async (role) => await User.find({ roles: role.role_id }),
   },
   Artist: {
-    arts: async (artist) => await Art.find({ artist_id: artist.artist_id }),
+    artworks: async (artist) => await Artwork.find({ artist_id: artist.artist_id }),
   },
   Art: {
     artist: async (art) => await Artist.findOne({ artist_id: art.artist_id }),
