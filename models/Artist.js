@@ -1,73 +1,75 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
+const AutoIncrement = require('mongoose-sequence')(mongoose);
 
 const ArtistSchema = new mongoose.Schema({
-    artist_id: {
-        type: Number,
-        unique: true
-    },
     firstName: {
         type: String,
-        required: [true, 'First name is required']
+        required: true,
     },
     lastName: {
         type: String,
-        required: [true, 'Last name is required']
+        required: true,
     },
     email: {
         type: String,
-        required: [true, 'Email is required'],
+        required: true,
         unique: true,
-        lowercase: true,
-        trim: true
     },
     password: {
         type: String,
-        required: [true, 'Password is required'],
-        minlength: 6
+        required: true,
     },
-    phoneNumber: {
+    phone: {
         type: String,
-        required: [true, 'Phone number is required']
+        required: true,
     },
-    city: {
-        type: String,
-        required: [true, 'City is required']
-    },
-    state: {
-        type: String,
-        required: [true, 'State is required']
-    },
-    country: {
-        type: String,
-        required: [true, 'Country is required']
-    },
-    resetPasswordToken: String,
-    resetPasswordExpires: Date,
+    city: String,
+    state: String,
+    country: String,
     bio: String,
     profileImage: String,
+    displayName: String,
+    address: String,
+    subscription: {
+        type: String,
+        default: 'free'
+    },
+    publicLink: String,
+    socialLinks: {
+        facebook: String,
+        instagram: String
+    },
     isVerified: {
         type: Boolean,
         default: false
     },
-    verificationToken: String
+    resetPasswordToken: String,
+    resetPasswordExpires: Date
 }, {
     timestamps: true
 });
 
+ArtistSchema.plugin(AutoIncrement, { inc_field: 'artist_id' });
+
 // Hash password before saving
 ArtistSchema.pre('save', async function(next) {
-    if (!this.isModified('password')) return next();
-    this.password = await bcrypt.hash(this.password, 12);
+    if (this.isModified('password')) {
+        this.password = await bcrypt.hash(this.password, 12);
+    }
     next();
 });
 
 // Generate JWT token
 ArtistSchema.methods.generateAuthToken = function() {
     return jwt.sign(
-        { id: this._id, email: this.email },
+        { 
+            id: this.artist_id, 
+            email: this.email,
+            firstName: this.firstName,
+            lastName: this.lastName
+        },
         process.env.JWT_SECRET,
         { expiresIn: '24h' }
     );
@@ -76,17 +78,6 @@ ArtistSchema.methods.generateAuthToken = function() {
 // Compare password
 ArtistSchema.methods.comparePassword = async function(candidatePassword) {
     return await bcrypt.compare(candidatePassword, this.password);
-};
-
-// Generate password reset token
-ArtistSchema.methods.generatePasswordResetToken = function() {
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    this.resetPasswordToken = crypto
-        .createHash('sha256')
-        .update(resetToken)
-        .digest('hex');
-    this.resetPasswordExpires = Date.now() + 30 * 60 * 1000; // 30 minutes
-    return resetToken;
 };
 
 module.exports = mongoose.model('Artist', ArtistSchema);
