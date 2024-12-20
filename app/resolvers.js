@@ -564,96 +564,74 @@ const resolvers = {
     },
     artistSignup: async (_, { input }) => {
       try {
-        // Check if email already exists
         const existingArtist = await Artist.findOne({ email: input.email });
         if (existingArtist) {
           return {
             success: false,
-            message: 'Email is already registered'
             message: 'Email already registered'
           };
         }
 
-        // Create verification token
-        const verificationToken = crypto.randomBytes(32).toString('hex');
-        
-        // Create new artist
         const artist = new Artist({
           ...input,
-          verificationToken
           isVerified: false,
           verificationToken: crypto.randomBytes(32).toString('hex')
         });
 
         await artist.save();
+
+        // Send verification email
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
           }
         });
 
-        const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${verificationToken}`;
-        
         await transporter.sendMail({
-          to: input.email,
           to: artist.email,
           subject: 'Verify your email',
-          html: `Please click <a href="${verificationUrl}">here</a> to verify your email.`
           html: `Please click <a href="${process.env.FRONTEND_URL}/verify-email/${artist.verificationToken}">here</a> to verify your email.`
         });
 
         return {
+          success: true,
+          message: 'Registration successful. Please check your email to verify your account.',
+          artist
+        };
+      } catch (error) {
         console.error('Signup error:', error);
         return {
           success: false,
-          message: error.message
+          message: 'An error occurred during registration'
         };
       }
     },
-    artistLogin: async (_, { email, password }) => {
+
+    requestPasswordReset: async (_, { email }) => {
       try {
         const artist = await Artist.findOne({ email });
         if (!artist) {
           return {
             success: false,
-            message: 'Email is not registered. Please sign up first.',
+            message: 'Email not found'
           };
         }
-        if (!artist.isVerified) {
-          return {
-            success: false,
-            message: 'Please verify your email before logging in.'
-          };
-        }
-        const isValidPassword = await artist.comparePassword(password);
-        if (!isValidPassword) {
-          return {
-            success: false,
-            message: 'Invalid password.'
-          };
-        }
-        const token = artist.generateAuthToken();
-        return {
-          success: true,
-          message: 'Login successful',
-          token,
-          artist
-        };
-      } catch (error) {
-        console.error('Login error:', error);
-        return {
-          success: false,
-          message: error.message
-          message: 'An error occurred during registration'
-        };
-      }
-    },
+
+        const resetToken = artist.generatePasswordResetToken();
+        await artist.save();
+
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
           }
         });
 
-        const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-        
         await transporter.sendMail({
           to: email,
-          subject: 'Password Reset Request',
-          html: `Click <a href="${resetUrl}">here</a> to reset your password. This link is valid for 30 minutes.`
           subject: 'Reset your password',
           html: `Click <a href="${process.env.FRONTEND_URL}/reset-password/${resetToken}">here</a> to reset your password.`
         });
@@ -663,23 +641,46 @@ const resolvers = {
           message: 'Password reset link sent to your email'
         };
       } catch (error) {
-        console.error('Reset request error:', error);
         console.error('Password reset request error:', error);
         return {
           success: false,
-          message: 'Error sending reset link'
           message: 'An error occurred while processing your request'
         };
       }
     },
+
+    resetPassword: async (_, { token, newPassword }) => {
+      try {
+        const hashedToken = crypto
+          .createHash('sha256')
+          .update(token)
+          .digest('hex');
+
+        const artist = await Artist.findOne({
+          resetPasswordToken: hashedToken,
+          resetPasswordExpires: { $gt: Date.now() }
+        });
+
+        if (!artist) {
+          return {
+            success: false,
+            message: 'Invalid or expired reset token'
+          };
+        }
+
+        artist.password = newPassword;
+        artist.resetPasswordToken = undefined;
+        artist.resetPasswordExpires = undefined;
+        await artist.save();
+
+        return {
+          success: true,
           message: 'Password reset successful'
         };
       } catch (error) {
-        console.error('Reset password error:', error);
         console.error('Password reset error:', error);
         return {
           success: false,
-          message: 'Error resetting password'
           message: 'An error occurred while resetting your password'
         };
       }
