@@ -283,10 +283,11 @@ const resolvers = {
         throw new Error(`Failed to create payment: ${error.message}`);
       }
     },
-    updatePaymentStatus: async (_, { paymentIntentId, status }) => {
+    updatePaymentStatus: async (_, { paymentId, status }) => {
+      console.log('Attempting to update payment with ID:', paymentId);
       try {
         const payment = await Payment.findOneAndUpdate(
-          { stripe_payment_intent_id: paymentIntentId },
+          { payment_id: paymentId },
           { 
             payment_status: status,
             payment_date: new Date()
