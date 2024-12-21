@@ -10,6 +10,8 @@ const Payment = require('./models/Payment');
 const EventRegistration = require('./models/EventRegistration');
 const Artist = require('./models/Artist');
 
+process.env.JWT_SECRET = 'test_secret_key';
+
 // Mock Stripe
 jest.mock('stripe', () => {
   return jest.fn().mockImplementation(() => ({
@@ -165,6 +167,7 @@ describe('Payment API', () => {
   });
 
   it('should update payment status', async () => {
+    // Create a payment first
     const payment = await Payment.create({
       stripe_payment_intent_id: 'test_intent_id',
       order_id: 'TEST123',
@@ -176,8 +179,8 @@ describe('Payment API', () => {
     });
 
     const UPDATE_PAYMENT_STATUS = `
-      mutation UpdatePaymentStatus($paymentIntentId: String!, $status: String!) {
-        updatePaymentStatus(paymentIntentId: $paymentIntentId, status: $status) {
+      mutation UpdatePaymentStatus($paymentId: ID!, $status: String!) {
+        updatePaymentStatus(paymentId: $paymentId, status: $status) {
           success
           message
           payment {
@@ -187,14 +190,24 @@ describe('Payment API', () => {
       }
     `;
 
+    // Add this line to ensure the payment was created successfully
+    console.log('Created payment ID:', payment._id.toString());
+
     const res = await server.executeOperation({
       query: UPDATE_PAYMENT_STATUS,
       variables: { 
-        paymentIntentId: 'test_intent_id',
+        paymentId: payment.payment_id || payment._id.toString(),
         status: 'completed'
       }
     });
 
+    // Add better error handling
+    if (res.errors) {
+      console.error('Full response:', res);
+      throw new Error(`GraphQL Error: ${res.errors[0].message}`);
+    }
+
+    expect(res.data.updatePaymentStatus).toBeTruthy();
     expect(res.data.updatePaymentStatus.success).toBe(true);
     expect(res.data.updatePaymentStatus.payment.payment_status).toBe('completed');
   });
@@ -252,19 +265,19 @@ describe('Event Registration API', () => {
       variables: {
         input: {
           event_id: 1,
-          event_name: "Test Event",
-          event_date: "2024-10-25",
-          event_venue: "Test Venue",
-          event_time: "7:00 PM",
-          first_name: "John",
-          last_name: "Doe",
+          eventName: "Test Event",
+          eventDate: "2024-10-25",
+          eventVenue: "Test Venue",
+          eventTime: "7:00 PM",
+          firstName: "John",
+          lastName: "Doe",
           email: "test@example.com",
           contact: "+1234567890",
           address1: "123 Test St",
           city: "Test City",
           state: "TS",
           zipcode: "12345",
-          payment_amount: 20
+          paymentAmount: 20.0
         }
       }
     });
