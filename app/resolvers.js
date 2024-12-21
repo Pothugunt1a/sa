@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 // Import other models as needed
+
 const resolvers = {
   Query: {
     users: async () => await User.find(),
