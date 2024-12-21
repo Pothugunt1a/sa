@@ -9,7 +9,6 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 // Import other models as needed
-
 const resolvers = {
   Query: {
     users: async () => await User.find(),
@@ -566,8 +565,13 @@ const resolvers = {
     },
     artistSignup: async (_, { input }) => {
       try {
+        console.log('Starting artist signup with input:', input);
+
         const existingArtist = await Artist.findOne({ email: input.email });
+        console.log('Existing artist check:', existingArtist);
+
         if (existingArtist) {
+          console.log('Artist already exists with email:', input.email);
           return {
             success: false,
             message: 'Email already registered'
@@ -580,7 +584,10 @@ const resolvers = {
           verificationToken: crypto.randomBytes(32).toString('hex')
         });
 
-        await artist.save();
+        console.log('Created artist object:', artist);
+
+        const savedArtist = await artist.save();
+        console.log('Artist saved successfully:', savedArtist);
 
         // Send verification email
         const transporter = nodemailer.createTransport({
@@ -591,22 +598,24 @@ const resolvers = {
           }
         });
 
+        console.log('Attempting to send verification email');
         await transporter.sendMail({
           to: artist.email,
           subject: 'Verify your email',
           html: `Please click <a href="${process.env.FRONTEND_URL}/verify-email/${artist.verificationToken}">here</a> to verify your email.`
         });
+        console.log('Verification email sent');
 
         return {
           success: true,
           message: 'Registration successful. Please check your email to verify your account.',
-          artist
+          artist: savedArtist
         };
       } catch (error) {
-        console.error('Signup error:', error);
+        console.error('Error in artist signup:', error);
         return {
           success: false,
-          message: 'An error occurred during registration'
+          message: `An error occurred during registration: ${error.message}`
         };
       }
     },
