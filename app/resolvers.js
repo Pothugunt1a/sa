@@ -568,28 +568,28 @@ const resolvers = {
         console.log('Starting artist signup with input:', input);
 
         const existingArtist = await Artist.findOne({ email: input.email });
-        console.log('Existing artist check:', existingArtist);
-
         if (existingArtist) {
-          console.log('Artist already exists with email:', input.email);
           return {
             success: false,
             message: 'Email already registered'
           };
         }
 
+        // Generate verification token
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        
         const artist = new Artist({
           ...input,
           isVerified: false,
-          verificationToken: crypto.randomBytes(32).toString('hex')
+          verificationToken
         });
 
-        console.log('Created artist object:', artist);
-
         const savedArtist = await artist.save();
-        console.log('Artist saved successfully:', savedArtist);
 
-        // Send verification email
+        // Create verification URL
+        const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${verificationToken}`;
+
+        // Create email transporter
         const transporter = nodemailer.createTransport({
           service: 'gmail',
           auth: {
@@ -598,13 +598,46 @@ const resolvers = {
           }
         });
 
-        console.log('Attempting to send verification email');
+        // HTML email template
+        const emailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">Welcome to Shashikala Foundation!</h2>
+            <p>Thank you for registering as an artist. Please verify your email address to complete your registration.</p>
+            <div style="margin: 30px 0;">
+              <a href="${verificationUrl}" 
+                 style="background-color: #4CAF50; 
+                        color: white; 
+                        padding: 12px 25px; 
+                        text-decoration: none; 
+                        border-radius: 4px;
+                        display: inline-block;">
+                Verify Email Address
+              </a>
+            </div>
+            <p style="color: #666; font-size: 14px;">
+              If the button doesn't work, copy and paste this link into your browser:
+              <br>
+              <span style="color: #0066cc;">${verificationUrl}</span>
+            </p>
+            <p style="color: #666; font-size: 14px;">
+              This verification link will expire in 24 hours.
+            </p>
+            <hr style="border: 1px solid #eee; margin: 20px 0;">
+            <p style="color: #999; font-size: 12px;">
+              If you didn't create an account with Shashikala Foundation, please ignore this email.
+            </p>
+          </div>
+        `;
+
+        // Send verification email
         await transporter.sendMail({
+          from: `"Shashikala Foundation" <${process.env.EMAIL_USER}>`,
           to: artist.email,
-          subject: 'Verify your email',
-          html: `Please click <a href="${process.env.FRONTEND_URL}/verify-email/${artist.verificationToken}">here</a> to verify your email.`
+          subject: 'Verify Your Email - Shashikala Foundation',
+          html: emailHtml
         });
-        console.log('Verification email sent');
+
+        console.log('Verification email sent successfully');
 
         return {
           success: true,
@@ -699,16 +732,21 @@ const resolvers = {
 
     verifyEmail: async (_, { token }) => {
       try {
-        const artist = await Artist.findOne({ verificationToken: token });
+        const artist = await Artist.findOne({ 
+          verificationToken: token,
+          verificationTokenExpires: { $gt: Date.now() }
+        });
+
         if (!artist) {
           return {
             success: false,
-            message: 'Invalid verification token'
+            message: 'Invalid or expired verification token'
           };
         }
 
         artist.isVerified = true;
         artist.verificationToken = undefined;
+        artist.verificationTokenExpires = undefined;
         await artist.save();
 
         return {
