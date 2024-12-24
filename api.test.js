@@ -62,20 +62,22 @@ beforeAll(async () => {
   server = new ApolloServer({ 
     typeDefs, 
     resolvers,
-    context: () => ({ 
-      stripe: stripeMock,
-      // Add any other context needed for tests
-    })
+    context: () => ({ stripe: stripeMock })
   });
   await server.start();
-  await mongoose.connect(global.__MONGO_URI__);
+  
+  // Connect to test database
+  await mongoose.connect(global.__MONGO_URI__, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+  });
 });
 
 afterAll(async () => {
+  await mongoose.connection.close();
   if (server) {
     await server.stop();
   }
-  await mongoose.connection.close();
 });
 
 beforeEach(async () => {
@@ -326,13 +328,22 @@ describe('Artist Authentication', () => {
   const testArtist = {
     firstName: 'John',
     lastName: 'Doe',
-    email: 'john@example.com',
-    password: 'password123',
+    email: 'john.doe@test.com',
+    password: 'test123',
     phoneNumber: '1234567890',
     city: 'Test City',
-    state: 'Test State',
+    state: 'TS',
     country: 'Test Country'
   };
+
+  beforeEach(async () => {
+    // Clear the artists collection before each test
+    await Artist.deleteMany({});
+    
+    // Reset the auto-increment counter
+    const { db } = mongoose.connection;
+    await db.collection('artistcounters').deleteMany({});
+  });
 
   it('should register a new artist', async () => {
     const SIGNUP_MUTATION = `
@@ -344,6 +355,7 @@ describe('Artist Authentication', () => {
             email
             firstName
             lastName
+            artist_id
           }
         }
       }
@@ -356,6 +368,7 @@ describe('Artist Authentication', () => {
 
     expect(res.data.artistSignup.success).toBe(true);
     expect(res.data.artistSignup.artist.email).toBe(testArtist.email);
+    expect(res.data.artistSignup.artist.artist_id).toBeDefined();
   });
 
   it('should not register artist with existing email', async () => {
