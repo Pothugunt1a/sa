@@ -53,7 +53,13 @@ const ArtistSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
-    verificationToken: String
+    verificationToken: String,
+    verificationTokenExpires: {
+        type: Date,
+        default: function() {
+            return new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
+        }
+    }
 }, {
     timestamps: true
 });
