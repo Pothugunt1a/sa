@@ -5,6 +5,7 @@ const Art = require('../models/Art');
 const UserRole = require('../models/UserRole');
 const Payment = require('../models/Payment');
 const EventRegistration = require('../models/EventRegistration');
+const Event = require('../models/Event');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
@@ -141,6 +142,22 @@ const resolvers = {
       } catch (error) {
         console.error('Error fetching registration details:', error);
         throw new Error(`Failed to fetch registration details: ${error.message}`);
+      }
+    },
+    artistEvents: async (_, { artist_id }) => {
+      try {
+        return await Event.find({ artist_id });
+      } catch (error) {
+        console.error('Error fetching artist events:', error);
+        throw new Error('Failed to fetch events');
+      }
+    },
+    event: async (_, { event_id }) => {
+      try {
+        return await Event.findOne({ event_id });
+      } catch (error) {
+        console.error('Error fetching event:', error);
+        throw new Error('Failed to fetch event');
       }
     }
     // Add more queries
@@ -760,6 +777,92 @@ const resolvers = {
           message: 'Error verifying email'
         };
       }
+    },
+
+    createEvent: async (_, { input }, { user }) => {
+      try {
+        if (!user) {
+          throw new Error('Authentication required');
+        }
+
+        const event = new Event({
+          ...input,
+          artist_id: user.artist_id,
+          status: 'upcoming'
+        });
+
+        await event.save();
+        console.log('Event created:', event);
+
+        return event;
+      } catch (error) {
+        console.error('Error creating event:', error);
+        throw new Error('Failed to create event');
+      }
+    },
+
+    updateEvent: async (_, { event_id, input }, { user }) => {
+      try {
+        if (!user) {
+          throw new Error('Authentication required');
+        }
+
+        const event = await Event.findOne({ event_id });
+        
+        if (!event) {
+          throw new Error('Event not found');
+        }
+
+        if (event.artist_id !== user.artist_id) {
+          throw new Error('Unauthorized to update this event');
+        }
+
+        // Update event status based on date
+        const eventDate = new Date(input.date);
+        const status = eventDate < new Date() ? 'past' : 'upcoming';
+
+        const updatedEvent = await Event.findOneAndUpdate(
+          { event_id },
+          { 
+            ...input,
+            status,
+            updated_at: new Date()
+          },
+          { new: true }
+        );
+
+        console.log('Event updated:', updatedEvent);
+        return updatedEvent;
+      } catch (error) {
+        console.error('Error updating event:', error);
+        throw new Error('Failed to update event');
+      }
+    },
+
+    deleteEvent: async (_, { event_id }, { user }) => {
+      try {
+        if (!user) {
+          throw new Error('Authentication required');
+        }
+
+        const event = await Event.findOne({ event_id });
+        
+        if (!event) {
+          throw new Error('Event not found');
+        }
+
+        if (event.artist_id !== user.artist_id) {
+          throw new Error('Unauthorized to delete this event');
+        }
+
+        await Event.deleteOne({ event_id });
+        console.log('Event deleted:', event_id);
+        
+        return true;
+      } catch (error) {
+        console.error('Error deleting event:', error);
+        throw new Error('Failed to delete event');
+      }
     }
   },
   User: {
@@ -778,6 +881,9 @@ const resolvers = {
     user: async (userRole) => await User.findOne({ user_id: userRole.user_id }),
     role: async (userRole) => await Role.findOne({ role_id: userRole.role_id }),
   },
+  Event: {
+    artist: async (event) => await Artist.findOne({ artist_id: event.artist_id })
+  }
 };
 
 module.exports = resolvers;
