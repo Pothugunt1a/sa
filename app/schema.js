@@ -413,11 +413,16 @@ const typeDefs = gql`
     time: String!
     location: String!
     price: Float!
-    artist_id: ID!
-    status: String!
-    artist: Artist
+    artist_id: ID
+    status: String
   }
-    
+  input EventInput {
+    title: String!
+    date: String!
+    time: String!
+    location: String!
+    price: Float!
+  }
 
   input ArtistSignupInput {
     firstName: String!
