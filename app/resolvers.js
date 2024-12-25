@@ -148,7 +148,7 @@ const resolvers = {
       try {
         return await Event.find({ artist_id });
       } catch (error) {
-        console.error('Error fetching artist events:', error);
+        console.error('Error fetching events:', error);
         throw new Error('Failed to fetch events');
       }
     },
@@ -779,59 +779,46 @@ const resolvers = {
       }
     },
 
-    createEvent: async (_, { input }, { user }) => {
+    createEvent: async (_, { input }) => {
       try {
-        if (!user) {
-          throw new Error('Authentication required');
-        }
-
+        console.log('Creating event with input:', input);
+        
+        // Create new event
         const event = new Event({
-          ...input,
-          artist_id: user.artist_id,
+          title: input.title,
+          date: input.date,
+          time: input.time,
+          location: input.location,
+          price: input.price,
           status: 'upcoming'
         });
 
-        await event.save();
-        console.log('Event created:', event);
+        // Save to database
+        const savedEvent = await event.save();
+        console.log('Event created:', savedEvent);
 
-        return event;
+        return savedEvent;
       } catch (error) {
         console.error('Error creating event:', error);
         throw new Error('Failed to create event');
       }
     },
 
-    updateEvent: async (_, { event_id, input }, { user }) => {
+    updateEvent: async (_, { event_id, input }) => {
       try {
-        if (!user) {
-          throw new Error('Authentication required');
-        }
-
-        const event = await Event.findOne({ event_id });
-        
-        if (!event) {
-          throw new Error('Event not found');
-        }
-
-        if (event.artist_id !== user.artist_id) {
-          throw new Error('Unauthorized to update this event');
-        }
-
-        // Update event status based on date
-        const eventDate = new Date(input.date);
-        const status = eventDate < new Date() ? 'past' : 'upcoming';
-
         const updatedEvent = await Event.findOneAndUpdate(
           { event_id },
-          { 
+          {
             ...input,
-            status,
-            updated_at: new Date()
+            status: new Date(input.date) < new Date() ? 'past' : 'upcoming'
           },
           { new: true }
         );
 
-        console.log('Event updated:', updatedEvent);
+        if (!updatedEvent) {
+          throw new Error('Event not found');
+        }
+
         return updatedEvent;
       } catch (error) {
         console.error('Error updating event:', error);
