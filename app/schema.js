@@ -301,6 +301,8 @@ const typeDefs = gql`
     getRegistrationWithPayment(registrationId: ID!): RegistrationWithPayment!
     getArtist(id: ID!): Artist
     getArtistByEmail(email: String!): Artist
+    artistEvents(artist_id: ID!): [Event]
+    event(event_id: ID!): Event
   }
 
   type Mutation {
@@ -331,6 +333,9 @@ const typeDefs = gql`
     resetPassword(token: String!, newPassword: String!): PasswordResetResponse!
     verifyEmail(token: String!): VerificationResponse!
     updateArtistProfile(id: ID!, bio: String, profileImage: String): Artist!
+    createEvent(input: EventInput!): Event
+    updateEvent(event_id: ID!, input: EventInput!): Event
+    deleteEvent(event_id: ID!): Boolean
   }
 
   input UserInput {
@@ -376,7 +381,13 @@ const typeDefs = gql`
     eventVenue: String
     eventTime: String
   }
-
+  input EventInput {
+    title: String!
+    date: String!
+    time: String!
+    location: String!
+    price: Float!
+  }
   input EventRegistrationInput {
     event_id: Int!
     eventName: String!
@@ -395,6 +406,18 @@ const typeDefs = gql`
     zipcode: String!
     paymentAmount: Float!
   }
+  type Event {
+    event_id: ID!
+    title: String!
+    date: String!
+    time: String!
+    location: String!
+    price: Float!
+    artist_id: ID!
+    status: String!
+    artist: Artist
+  }
+    
 
   input ArtistSignupInput {
     firstName: String!
