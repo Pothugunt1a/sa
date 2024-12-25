@@ -381,13 +381,7 @@ const typeDefs = gql`
     eventVenue: String
     eventTime: String
   }
-  input EventInput {
-    title: String!
-    date: String!
-    time: String!
-    location: String!
-    price: Float!
-  }
+
   input EventRegistrationInput {
     event_id: Int!
     eventName: String!
@@ -413,8 +407,9 @@ const typeDefs = gql`
     time: String!
     location: String!
     price: Float!
-    artist_id: ID
-    status: String
+    artist_id: ID!
+    status: String!
+    artist: Artist
   }
   input EventInput {
     title: String!
