@@ -22,15 +22,19 @@ async function startServer() {
     app.use(express.json());
 
     app.use(cors({
-      origin: [
-        'https://shashikala-foundation.netlify.app',
-        'http://localhost:3000',
-        'https://studio.apollographql.com',
-        'https://shashikala-backend-gddy.onrender.com'
-      ],
+      origin: '*',
       credentials: true,
       methods: ['GET', 'POST', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+      allowedHeaders: [
+        'Content-Type', 
+        'Authorization', 
+        'Accept',
+        'apollo-require-preflight',
+        'x-apollo-operation-name',
+        'apollo-client-name',
+        'apollo-client-version',
+        'Access-Control-Allow-Origin'
+      ]
     }));
 
     console.log('Initializing MongoDB connection...');
@@ -53,15 +57,69 @@ async function startServer() {
       }
     });
 
+    app.get('/health', (req, res) => {
+      res.json({ status: 'ok' });
+    });
+
+    app.options('/graphql', cors());
+
+    app.use('/graphql', (req, res, next) => {
+      res.header('Access-Control-Allow-Origin', '*');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      
+      try {
+        // Check if Authorization header exists and is properly formatted
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+          console.log('Setting default authorization header');
+          // Make sure to include 'Bearer ' prefix
+          req.headers.authorization = `Bearer ${process.env.API_TOKEN}`;
+        }
+        next();
+      } catch (error) {
+        console.error('Error in authorization middleware:', error);
+        next(error);
+      }
+    });
+
     const server = new ApolloServer({
       typeDefs,
       resolvers,
-      context: ({ req }) => ({ 
-        req,
-        stripe
-      }),
+      context: async ({ req }) => {
+        try {
+          const token = req.headers.authorization || '';
+          console.log('Received Authorization header:', token);
+
+          if (!token || !token.startsWith('Bearer ')) {
+            console.log('Missing or invalid Authorization header format');
+            throw new Error('Authorization header must be provided and start with Bearer');
+          }
+
+          const actualToken = token.split('Bearer ')[1];
+          console.log('Extracted token:', actualToken);
+
+          if (actualToken !== process.env.API_TOKEN) {
+            console.log('Token mismatch');
+            throw new Error('Invalid token');
+          }
+
+          console.log('Authentication successful');
+          return { token: actualToken };
+        } catch (error) {
+          console.error('Authentication error:', error);
+          throw error;
+        }
+      },
       introspection: true,
-      playground: true
+      playground: {
+        settings: {
+          'request.credentials': 'include',
+          'request.headers': {
+            'Authorization': `Bearer ${process.env.API_TOKEN}`
+          }
+        }
+      }
     });
 
     await server.start();
@@ -69,11 +127,12 @@ async function startServer() {
     server.applyMiddleware({ 
       app,
       path: '/graphql',
-      cors: false
-    });
-
-    app.get('/health', (req, res) => {
-      res.json({ status: 'ok' });
+      cors: {
+        origin: '*',
+        credentials: true,
+        methods: ['GET', 'POST', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+      }
     });
 
     app.post('/create-payment-intent', async (req, res) => {
