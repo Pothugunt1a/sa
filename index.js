@@ -88,17 +88,22 @@ async function startServer() {
       resolvers,
       context: async ({ req }) => {
         try {
-          // Get operation name from the request
-          const operationName = req.body.operationName;
-          
           // List of operations that don't require authentication
-          const publicOperations = ['SignupArtist', 'LoginArtist'];
-          
-          // Skip auth for public operations
+          const publicOperations = [
+            'artistLogin',
+            'artistSignup',
+            'requestPasswordReset',
+            'resetPassword',
+            'verifyEmail'
+          ];
+
+          // Check if this is a public operation
+          const operationName = req.body.operationName;
           if (publicOperations.includes(operationName)) {
-            return { skipAuth: true };
+            return { isPublicOperation: true };
           }
 
+          // For all other operations, require authentication
           const token = req.headers.authorization || '';
           console.log('Received Authorization header:', token);
 
