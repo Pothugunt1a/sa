@@ -37,6 +37,17 @@ async function startServer() {
       ]
     }));
 
+    // Add explicit OPTIONS handling
+    app.options('*', cors());
+
+    // Add headers middleware
+    app.use((req, res, next) => {
+      res.header('Access-Control-Allow-Origin', '*');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+      next();
+    });
+
     console.log('Initializing MongoDB connection...');
     const dbConnection = await connectDB();
     console.log('MongoDB connection established');
@@ -69,12 +80,26 @@ async function startServer() {
       res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
       
       try {
-        // Check if Authorization header exists and is properly formatted
-        const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-          console.log('Setting default authorization header');
-          // Make sure to include 'Bearer ' prefix
-          req.headers.authorization = `Bearer ${process.env.API_TOKEN}`;
+        // List of operations that don't require authentication
+        const publicOperations = [
+          'artistLogin',
+          'artistSignup',
+          'requestPasswordReset',
+          'resetPassword',
+          'verifyEmail'
+        ];
+
+        // Check if this is a public operation
+        const body = req.body;
+        const operationName = body?.operationName;
+        
+        if (!publicOperations.includes(operationName)) {
+          // Only set default auth header for non-public operations
+          const authHeader = req.headers.authorization;
+          if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            console.log('Setting default authorization header');
+            req.headers.authorization = `Bearer ${process.env.API_TOKEN}`;
+          }
         }
         next();
       } catch (error) {
@@ -98,8 +123,9 @@ async function startServer() {
           ];
 
           // Check if this is a public operation
-          const operationName = req.body.operationName;
+          const operationName = req.body?.operationName;
           if (publicOperations.includes(operationName)) {
+            console.log('Public operation:', operationName);
             return { isPublicOperation: true };
           }
 
